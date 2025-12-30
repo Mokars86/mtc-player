@@ -1,0 +1,78 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  font-family: 'Inter', system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+
+  /* Color Scheme: DARK (Default) */
+  --bg-app: #050505;
+  --bg-card: #121212;
+  --bg-surface: #1a1a1a;
+  /* Replaces brand-light/secondary surface */
+
+  --text-main: #ffffff;
+  --text-sub: #a1a1aa;
+
+  --border-app: #27272a;
+
+  --brand-accent: #00f0ff;
+  --brand-purple: #7000ff;
+  --brand-pink: #ff0055;
+
+  color-scheme: dark;
+}
+
+.light-theme {
+  /* Color Scheme: LIGHT */
+  --bg-app: #ffffff;
+  --bg-card: #f3f4f6;
+  --bg-surface: #e5e7eb;
+
+  --text-main: #111827;
+  --text-sub: #4b5563;
+
+  --border-app: #d1d5db;
+
+  /* Adjust accents for visibility on light? 
+     Cyan (#00f0ff) is hard to read on white. 
+     Let's darken it slightly or keep it as a 'brand' marker. 
+     For text, we should be careful. */
+  --brand-accent: #06b6d4;
+  /* Cyan-500/600 for better contrast on white */
+  --brand-purple: #7c3aed;
+  --brand-pink: #db2777;
+
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  min-height: 100vh;
+  overflow-x: hidden;
+  background-color: var(--bg-app);
+  color: var(--text-main);
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Custom Scrollbar - Themed */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-app);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-sub);
+}
