@@ -43,20 +43,20 @@ const HomeView: React.FC<HomeViewProps> = ({
   };
 
   return (
-    <div className="p-6 pb-32 space-y-8 animate-fade-in relative">
+    <div className="p-4 md:p-6 pb-32 space-y-6 md:space-y-8 animate-fade-in relative">
       {/* Hero / Header Section */}
       <div className="flex flex-col md:flex-row justify-between items-start gap-4">
         <div className="space-y-4 w-full">
           <div className="flex justify-between items-start w-full md:block">
             <div>
-              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-brand-light tracking-tighter">
+              <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-brand-light tracking-tighter">
                 Good Evening
               </h1>
               <p className="text-brand-light font-medium mt-1 text-lg">{userName.split(' ')[0]}</p>
             </div>
-             <button onClick={onOpenProfile} className="md:hidden w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer flex-shrink-0">
-               <img src={`https://ui-avatars.com/api/?name=${userName}&background=0d9488&color=fff`} alt="Profile" className="w-full h-full object-cover" />
-             </button>
+            <button onClick={onOpenProfile} className="md:hidden w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer flex-shrink-0">
+              <img src={`https://ui-avatars.com/api/?name=${userName}&background=0d9488&color=fff`} alt="Profile" className="w-full h-full object-cover" />
+            </button>
           </div>
 
           {/* Quick Stats */}
@@ -126,7 +126,7 @@ const HomeView: React.FC<HomeViewProps> = ({
             <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
               <Icons.Heart className="w-5 h-5 text-brand-accent" /> Quick Favorites
             </h2>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3 md:gap-4">
               {favorites.slice(0, 4).map((track) => (
                 <div
                   key={track.id}
@@ -159,7 +159,7 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
           {!isOnline && <span className="text-xs text-red-400 border border-red-500/30 px-2 py-1 rounded-full bg-red-500/10">Internet required</span>}
         </div>
-        <div className={`grid grid-cols-2 md:grid-cols-3 gap-4 ${!isOnline ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
+        <div className={`grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 ${!isOnline ? 'opacity-50 pointer-events-none grayscale' : ''}`}>
           {MOODS.map((m) => (
             <button
               key={m.label}
