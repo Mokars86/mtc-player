@@ -11,6 +11,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { api } from './services/api';
 import { supabase } from './services/supabase';
 import { AuthView } from './views/AuthView';
+import { saveBatchMediaToDB, loadMediaFromDB, clearMediaDB, removeMediaFromDB } from './services/db';
 
 // Extracted Components
 import { SplashScreen } from './components/SplashScreen';
@@ -166,6 +167,25 @@ const AppContent = () => {
         }, 1000);
         return () => clearTimeout(timer);
     }, [recentlyPlayed]);
+
+    // Load Persistent Local Library
+    useEffect(() => {
+        const loadLocal = async () => {
+            try {
+                const saved = await loadMediaFromDB();
+                if (saved.length > 0) {
+                    setLocalLibrary(prev => {
+                        const existingIds = new Set(prev.map(p => p.id));
+                        const unique = saved.filter(s => !existingIds.has(s.id));
+                        return [...prev, ...unique];
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to load local DB", e);
+            }
+        };
+        loadLocal();
+    }, []);
 
     // Handle Login from AuthView
     const handleLogin = (guestMode = false) => {
@@ -588,6 +608,7 @@ const AppContent = () => {
     const removeFromLibrary = (id: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
         if (confirm("Remove this track from your local library?")) {
+            removeMediaFromDB(id);
             setLocalLibrary(prev => prev.filter(item => item.id !== id));
             showToast("Track removed from library");
         }
@@ -595,6 +616,7 @@ const AppContent = () => {
 
     const clearLocalLibrary = () => {
         if (confirm("Clear all local tracks? This action cannot be undone.")) {
+            clearMediaDB();
             setLocalLibrary([]);
             showToast("Local library cleared");
         }
@@ -701,7 +723,7 @@ const AppContent = () => {
         showToast("Removed from playlist");
     };
 
-    const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
 
@@ -733,6 +755,9 @@ const AppContent = () => {
                     moods: ['Local']
                 };
             });
+
+            // Save to Persistent Storage
+            await saveBatchMediaToDB(newTracks.map((item, i) => ({ item, file: files[i] })));
 
             setLocalLibrary(prev => [...newTracks, ...prev]);
             setLibraryTab('LOCAL');

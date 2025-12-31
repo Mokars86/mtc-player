@@ -66,19 +66,19 @@ const HomeView: React.FC<HomeViewProps> = ({
             <span className="flex items-center gap-1"><Icons.ListMusic className="w-3 h-3" /> {stats.playlists} Playlists</span>
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
               onClick={onShuffleAll}
-              className="px-6 py-3 bg-brand-accent hover:bg-brand-light text-white rounded-full font-bold shadow-lg shadow-brand-accent/25 flex items-center gap-2 transition-transform hover:scale-105 active:scale-95"
+              className="px-6 py-3 bg-brand-accent hover:bg-brand-light text-white rounded-full font-bold shadow-lg shadow-brand-accent/25 flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 w-full sm:w-auto whitespace-nowrap"
             >
-              <Icons.Shuffle className="w-4 h-4" /> Feeling Lucky
+              <Icons.Shuffle className="w-4 h-4 flex-shrink-0" /> Feeling Lucky
             </button>
 
             <button
               onClick={onOpenHistory}
-              className="px-6 py-3 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text rounded-full font-bold shadow-lg flex items-center gap-2 transition-transform hover:scale-105 active:scale-95"
+              className="px-6 py-3 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text rounded-full font-bold shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 w-full sm:w-auto whitespace-nowrap"
             >
-              <Icons.History className="w-4 h-4" /> History
+              <Icons.History className="w-4 h-4 flex-shrink-0" /> History
             </button>
           </div>
         </div>

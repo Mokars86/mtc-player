@@ -22,29 +22,29 @@ export const SettingsView = ({ theme, toggleTheme, gestureSettings, updateGestur
                 {/* Account Section */}
                 <section className="glass-panel p-4 rounded-xl space-y-4">
                     <h2 className="text-sm text-app-subtext uppercase font-bold tracking-wider mb-2">Account</h2>
-                    <div className="flex justify-between items-center bg-app-surface/50 p-3 rounded-lg">
+                    <div className="flex flex-col md:flex-row justify-between md:items-center bg-app-surface/50 p-3 rounded-lg gap-6">
                         <div className="flex items-center gap-3">
                             <div className={`p-2 rounded-full ${isGuest ? 'bg-orange-500/10 text-orange-500' : 'bg-brand-accent/10 text-brand-accent'}`}>
                                 <Icons.User className="w-5 h-5" />
                             </div>
-                            <div className="flex flex-col">
-                                <span className="text-app-text font-medium">{isGuest ? 'Guest Account' : 'Logged In'}</span>
-                                <span className="text-xs text-app-subtext">{isGuest ? 'Limited features' : 'Full access'}</span>
+                            <div className="flex flex-col justify-center">
+                                <span className="text-app-text font-medium leading-tight">{isGuest ? 'Guest Account' : 'Logged In'}</span>
+                                <span className="text-xs text-app-subtext leading-snug">{isGuest ? 'Limited features' : 'Full access'}</span>
                             </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex gap-3 w-full md:w-auto">
                             <button
                                 onClick={onShowSupport}
-                                className="px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2 shadow-lg shadow-orange-500/20"
+                                className="flex-1 md:flex-none px-3 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-sm font-bold transition-colors flex items-center justify-center gap-2 shadow-lg shadow-orange-500/20 whitespace-nowrap"
                             >
-                                <Icons.Coffee className="w-4 h-4" />
-                                <span className="hidden md:inline">Support</span>
+                                <Icons.Coffee className="w-4 h-4 flex-shrink-0" />
+                                <span>Support</span>
                             </button>
                             <button
                                 onClick={onLogout}
-                                className="px-4 py-2 bg-app-card hover:bg-app-border border border-app-border rounded-lg text-sm font-bold text-app-text transition-colors flex items-center gap-2"
+                                className="flex-1 md:flex-none px-4 py-2 bg-app-card hover:bg-app-border border border-app-border rounded-lg text-sm font-bold text-app-text transition-colors flex items-center justify-center gap-2 whitespace-nowrap"
                             >
-                                <Icons.LogOut className="w-4 h-4" />
+                                <Icons.LogOut className="w-4 h-4 flex-shrink-0" />
                                 {isGuest ? 'Sign In' : 'Sign Out'}
                             </button>
                         </div>
