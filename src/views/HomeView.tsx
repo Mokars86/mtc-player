@@ -45,17 +45,22 @@ const HomeView: React.FC<HomeViewProps> = ({
   return (
     <div className="p-6 pb-32 space-y-8 animate-fade-in relative">
       {/* Hero / Header Section */}
-      <div className="flex justify-between items-start">
-        <div className="space-y-4">
-          <div>
-            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-brand-light tracking-tighter">
-              Good Evening
-            </h1>
-            <p className="text-brand-light font-medium mt-1 text-lg">{userName.split(' ')[0]}</p>
+      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+        <div className="space-y-4 w-full">
+          <div className="flex justify-between items-start w-full md:block">
+            <div>
+              <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-brand-light tracking-tighter">
+                Good Evening
+              </h1>
+              <p className="text-brand-light font-medium mt-1 text-lg">{userName.split(' ')[0]}</p>
+            </div>
+             <button onClick={onOpenProfile} className="md:hidden w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer flex-shrink-0">
+               <img src={`https://ui-avatars.com/api/?name=${userName}&background=0d9488&color=fff`} alt="Profile" className="w-full h-full object-cover" />
+             </button>
           </div>
 
           {/* Quick Stats */}
-          <div className="flex gap-4 text-xs font-bold uppercase tracking-wider text-app-subtext">
+          <div className="flex flex-wrap gap-4 text-xs font-bold uppercase tracking-wider text-app-subtext">
             <span className="flex items-center gap-1"><Icons.Music className="w-3 h-3" /> {stats.tracks} Tracks</span>
             <span className="flex items-center gap-1"><Icons.Mic2 className="w-3 h-3" /> {stats.artists} Artists</span>
             <span className="flex items-center gap-1"><Icons.ListMusic className="w-3 h-3" /> {stats.playlists} Playlists</span>
@@ -78,7 +83,7 @@ const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
 
-        <button onClick={onOpenProfile} className="w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer">
+        <button onClick={onOpenProfile} className="hidden md:block w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer">
           <img src={`https://ui-avatars.com/api/?name=${userName}&background=0d9488&color=fff`} alt="Profile" className="w-full h-full object-cover" />
         </button>
       </div>
