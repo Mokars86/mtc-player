@@ -4,8 +4,8 @@ import { MediaType, MediaItem, Playlist, AppView } from '../types';
 
 // Props Interface
 interface LibraryViewProps {
-    libraryTab: 'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL';
-    setLibraryTab: Dispatch<SetStateAction<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL'>>;
+    libraryTab: 'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY';
+    setLibraryTab: Dispatch<SetStateAction<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY'>>;
     playlists: Playlist[];
     openCreatePlaylistModal: () => void;
     deletePlaylist: (id: string, e: React.MouseEvent) => void;
@@ -79,7 +79,7 @@ export const LibraryView = ({
                     </div>
 
                     <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar">
-                        {(['ALL', 'AUDIO', 'VIDEO', 'FAVORITES', 'PLAYLISTS', 'ALBUMS', 'ARTISTS', 'LOCAL'] as const).map(tab => (
+                        {(['ALL', 'AUDIO', 'VIDEO', 'FAVORITES', 'PLAYLISTS', 'ALBUMS', 'ARTISTS', 'LOCAL', 'HISTORY'] as const).map(tab => (
                             <button key={tab} onClick={() => setLibraryTab(tab)} className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${libraryTab === tab ? 'bg-brand-accent text-white shadow-md' : 'bg-app-surface text-app-subtext hover:bg-app-card hover:text-app-text border border-app-border'}`}>
                                 {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
                             </button>
@@ -236,6 +236,7 @@ export const LibraryView = ({
                             {selectedCollection?.type === 'PLAYLIST' && <p className="text-sm mt-2">This playlist is empty. Add songs from your library.</p>}
                             {libraryTab === 'AUDIO' && <p className="text-sm mt-2">Add some music to your library.</p>}
                             {libraryTab === 'VIDEO' && <p className="text-sm mt-2">Add some videos to your library.</p>}
+                            {libraryTab === 'HISTORY' && <p className="text-sm mt-2">Play some tracks to see them here.</p>}
                         </div>
                     )}
                 </div>

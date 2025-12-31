@@ -14,11 +14,12 @@ interface HomeViewProps {
   onShuffleAll: () => void;
   stats: { tracks: number, artists: number, playlists: number };
   favorites: MediaItem[];
+  onOpenHistory: () => void;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({
   onPlayDemo, onOpenProfile, userName, isOnline,
-  recentlyPlayed, onPlayTrack, onShuffleAll, stats, favorites
+  recentlyPlayed, onPlayTrack, onShuffleAll, stats, favorites, onOpenHistory
 }) => {
   const [aiSuggestions, setAiSuggestions] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -60,12 +61,21 @@ const HomeView: React.FC<HomeViewProps> = ({
             <span className="flex items-center gap-1"><Icons.ListMusic className="w-3 h-3" /> {stats.playlists} Playlists</span>
           </div>
 
-          <button
-            onClick={onShuffleAll}
-            className="mt-4 px-6 py-3 bg-brand-accent hover:bg-brand-light text-white rounded-full font-bold shadow-lg shadow-brand-accent/25 flex items-center gap-2 transition-transform hover:scale-105 active:scale-95"
-          >
-            <Icons.Shuffle className="w-4 h-4" /> Feeling Lucky
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={onShuffleAll}
+              className="px-6 py-3 bg-brand-accent hover:bg-brand-light text-white rounded-full font-bold shadow-lg shadow-brand-accent/25 flex items-center gap-2 transition-transform hover:scale-105 active:scale-95"
+            >
+              <Icons.Shuffle className="w-4 h-4" /> Feeling Lucky
+            </button>
+
+            <button
+              onClick={onOpenHistory}
+              className="px-6 py-3 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text rounded-full font-bold shadow-lg flex items-center gap-2 transition-transform hover:scale-105 active:scale-95"
+            >
+              <Icons.History className="w-4 h-4" /> History
+            </button>
+          </div>
         </div>
 
         <button onClick={onOpenProfile} className="w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer">
@@ -74,62 +84,66 @@ const HomeView: React.FC<HomeViewProps> = ({
       </div>
 
       {/* Recently Played */}
-      {recentlyPlayed.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
-            <Icons.Timer className="w-5 h-5 text-brand-accent" /> Recently Played
-          </h2>
-          <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-            {recentlyPlayed.map((track) => (
-              <div
-                key={track.id}
-                onClick={() => onPlayTrack(track)}
-                className="min-w-[140px] w-[140px] group cursor-pointer snap-start"
-              >
-                <div className="aspect-square rounded-xl overflow-hidden mb-3 relative shadow-lg">
-                  <img src={track.coverUrl || 'https://picsum.photos/200'} alt={track.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <div className="w-10 h-10 bg-brand-accent rounded-full flex items-center justify-center text-white shadow-xl transform scale-50 group-hover:scale-100 transition-all">
-                      <Icons.Play className="w-5 h-5 ml-1" />
+      {
+        recentlyPlayed.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
+              <Icons.Timer className="w-5 h-5 text-brand-accent" /> Recently Played
+            </h2>
+            <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+              {recentlyPlayed.map((track) => (
+                <div
+                  key={track.id}
+                  onClick={() => onPlayTrack(track)}
+                  className="min-w-[140px] w-[140px] group cursor-pointer snap-start"
+                >
+                  <div className="aspect-square rounded-xl overflow-hidden mb-3 relative shadow-lg">
+                    <img src={track.coverUrl || 'https://picsum.photos/200'} alt={track.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <div className="w-10 h-10 bg-brand-accent rounded-full flex items-center justify-center text-white shadow-xl transform scale-50 group-hover:scale-100 transition-all">
+                        <Icons.Play className="w-5 h-5 ml-1" />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <h3 className="font-bold text-app-text truncate text-sm">{track.title}</h3>
-                <p className="text-xs text-app-subtext truncate">{track.artist}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Quick Favorites */}
-      {favorites.length > 0 && (
-        <section className="space-y-4">
-          <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
-            <Icons.Heart className="w-5 h-5 text-brand-accent" /> Quick Favorites
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {favorites.slice(0, 4).map((track) => (
-              <div
-                key={track.id}
-                onClick={() => onPlayTrack(track)}
-                className="flex items-center gap-3 p-3 bg-app-card hover:bg-app-card/80 border border-app-border rounded-xl cursor-pointer transition-colors group"
-              >
-                <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative">
-                  <img src={track.coverUrl || 'https://picsum.photos/200'} alt={track.title} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Icons.Play className="w-4 h-4 text-white" />
-                  </div>
-                </div>
-                <div className="min-w-0">
                   <h3 className="font-bold text-app-text truncate text-sm">{track.title}</h3>
                   <p className="text-xs text-app-subtext truncate">{track.artist}</p>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
+              ))}
+            </div>
+          </section>
+        )
+      }
+
+      {/* Quick Favorites */}
+      {
+        favorites.length > 0 && (
+          <section className="space-y-4">
+            <h2 className="text-lg font-bold text-app-text flex items-center gap-2">
+              <Icons.Heart className="w-5 h-5 text-brand-accent" /> Quick Favorites
+            </h2>
+            <div className="grid grid-cols-2 gap-3">
+              {favorites.slice(0, 4).map((track) => (
+                <div
+                  key={track.id}
+                  onClick={() => onPlayTrack(track)}
+                  className="flex items-center gap-3 p-3 bg-app-card hover:bg-app-card/80 border border-app-border rounded-xl cursor-pointer transition-colors group"
+                >
+                  <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative">
+                    <img src={track.coverUrl || 'https://picsum.photos/200'} alt={track.title} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Icons.Play className="w-4 h-4 text-white" />
+                    </div>
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-app-text truncate text-sm">{track.title}</h3>
+                    <p className="text-xs text-app-subtext truncate">{track.artist}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )
+      }
 
       {/* Mood Selector */}
       <section>
@@ -158,51 +172,53 @@ const HomeView: React.FC<HomeViewProps> = ({
       </section>
 
       {/* AI Results Section */}
-      {(loading || aiSuggestions) && (
-        <section className="glass-panel rounded-2xl p-4 border-app-border border shadow-sm animate-fade-in">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-lg font-bold text-app-text">
-              {loading ? `Consulting AI for "${selectedMood}"...` : `AI Recommended for "${selectedMood}"`}
-            </h2>
-            {!loading && (
-              <button onClick={() => setAiSuggestions(null)} className="text-xs text-app-subtext hover:text-brand-light">Clear</button>
-            )}
-          </div>
+      {
+        (loading || aiSuggestions) && (
+          <section className="glass-panel rounded-2xl p-4 border-app-border border shadow-sm animate-fade-in">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold text-app-text">
+                {loading ? `Consulting AI for "${selectedMood}"...` : `AI Recommended for "${selectedMood}"`}
+              </h2>
+              {!loading && (
+                <button onClick={() => setAiSuggestions(null)} className="text-xs text-app-subtext hover:text-brand-light">Clear</button>
+              )}
+            </div>
 
-          <div className="space-y-3">
-            {loading ? (
-              // Skeleton Loading State
-              Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 p-2 rounded-lg">
-                  <div className="w-10 h-10 rounded bg-app-card animate-pulse"></div>
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 bg-app-card rounded w-3/4 animate-pulse"></div>
-                    <div className="h-3 bg-app-card rounded w-1/2 animate-pulse"></div>
+            <div className="space-y-3">
+              {loading ? (
+                // Skeleton Loading State
+                Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 rounded-lg">
+                    <div className="w-10 h-10 rounded bg-app-card animate-pulse"></div>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 bg-app-card rounded w-3/4 animate-pulse"></div>
+                      <div className="h-3 bg-app-card rounded w-1/2 animate-pulse"></div>
+                    </div>
                   </div>
-                </div>
-              ))
-            ) : (
-              aiSuggestions && aiSuggestions.map((track, idx) => (
-                <div key={idx} className="flex items-center gap-3 p-2 hover:bg-app-text/5 rounded-lg group cursor-pointer" onClick={onPlayDemo}>
-                  <div className="w-10 h-10 rounded bg-brand-dark/50 flex items-center justify-center text-brand-light font-bold">
-                    {idx + 1}
+                ))
+              ) : (
+                aiSuggestions && aiSuggestions.map((track, idx) => (
+                  <div key={idx} className="flex items-center gap-3 p-2 hover:bg-app-text/5 rounded-lg group cursor-pointer" onClick={onPlayDemo}>
+                    <div className="w-10 h-10 rounded bg-brand-dark/50 flex items-center justify-center text-brand-light font-bold">
+                      {idx + 1}
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-sm text-app-text group-hover:text-brand-accent">{track.title}</h3>
+                      <p className="text-xs text-app-subtext">{track.artist}</p>
+                    </div>
+                    <p className="text-xs text-app-subtext italic hidden sm:block">"{track.reason}"</p>
+                    <button className="p-2 rounded-full hover:bg-brand-accent/20 text-brand-accent">
+                      <Icons.Play className="w-4 h-4" />
+                    </button>
                   </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-sm text-app-text group-hover:text-brand-accent">{track.title}</h3>
-                    <p className="text-xs text-app-subtext">{track.artist}</p>
-                  </div>
-                  <p className="text-xs text-app-subtext italic hidden sm:block">"{track.reason}"</p>
-                  <button className="p-2 rounded-full hover:bg-brand-accent/20 text-brand-accent">
-                    <Icons.Play className="w-4 h-4" />
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          {!loading && !hasApiKey() && <p className="text-xs text-red-400 mt-2 text-center">API Key not detected. Using mock generation logic in production.</p>}
-        </section>
-      )}
-    </div>
+                ))
+              )}
+            </div>
+            {!loading && !hasApiKey() && <p className="text-xs text-red-400 mt-2 text-center">API Key not detected. Using mock generation logic in production.</p>}
+          </section>
+        )
+      }
+    </div >
   );
 };
 

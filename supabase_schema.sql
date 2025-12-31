@@ -70,3 +70,20 @@ create policy "Users can delete own playlist items." on playlist_items for delet
 create policy "Users can view own favorites." on favorites for select using ( auth.uid() = user_id );
 create policy "Users can insert own favorites." on favorites for insert with check ( auth.uid() = user_id );
 create policy "Users can delete own favorites." on favorites for delete using ( auth.uid() = user_id );
+
+-- PLAY HISTORY
+create table play_history (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users not null,
+  media_id text not null,
+  media_data jsonb not null, -- Store full metadata to reconstruct item
+  played_at timestamp with time zone default timezone('utc'::text, now())
+);
+
+-- RLS for History
+alter table play_history enable row level security;
+
+create policy "Users can view own history." on play_history for select using ( auth.uid() = user_id );
+create policy "Users can insert own history." on play_history for insert with check ( auth.uid() = user_id );
+create policy "Users can update own history." on play_history for update using ( auth.uid() = user_id );
+

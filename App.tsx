@@ -89,7 +89,7 @@ const AppContent = () => {
     const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
     // We should extract Library State too if possible, but keep here for now
-    const [libraryTab, setLibraryTab] = useState<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL'>('ALL');
+    const [libraryTab, setLibraryTab] = useState<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY'>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Playlist & Collection State
@@ -141,6 +141,7 @@ const AppContent = () => {
                 setPlaylists(data.playlists);
                 setFavorites(new Set(data.favorites));
                 if (data.gestures) setGestureSettings(data.gestures);
+                if (data.history) setRecentlyPlayed(data.history);
 
                 // Artificial delay to show splash screen a bit longer if data loads too fast
                 setTimeout(() => {
@@ -156,6 +157,15 @@ const AppContent = () => {
         };
         loadData();
     }, [showToast, session, isGuest]);
+
+    // Sync History
+    useEffect(() => {
+        // Debounce or just sync
+        const timer = setTimeout(() => {
+            api.syncHistory(recentlyPlayed);
+        }, 1000);
+        return () => clearTimeout(timer);
+    }, [recentlyPlayed]);
 
     // Handle Login from AuthView
     const handleLogin = (guestMode = false) => {
@@ -373,6 +383,8 @@ const AppContent = () => {
                 media = media.filter(m => m.type === MediaType.VIDEO);
             } else if (libraryTab === 'PLAYLISTS' || libraryTab === 'ALBUMS' || libraryTab === 'ARTISTS') {
                 media = [];
+            } else if (libraryTab === 'HISTORY') {
+                media = recentlyPlayed;
             }
         }
 
@@ -947,6 +959,10 @@ const AppContent = () => {
                                 playlists: playlists.length
                             }}
                             favorites={Array.from(favorites).map(id => allMedia.find(m => m.id === id)).filter(Boolean) as MediaItem[]}
+                            onOpenHistory={() => {
+                                setLibraryTab('HISTORY');
+                                setCurrentView(AppView.LIBRARY);
+                            }}
                         />
                     )}
                     {/* Using the component extraction logic, we assume we have a LibraryView now */}
@@ -1013,7 +1029,6 @@ const AppContent = () => {
                 )}
             </div>
             {/* Modals */}
-            {showProfileModal && <ProfileModal user={session?.user} onClose={() => setShowProfileModal(false)} />}
             {showPlaylistModal && <CreatePlaylistModal onClose={() => setShowPlaylistModal(false)} onCreate={handleCreatePlaylist} />}
             {showSupportModal && <SupportModal onClose={() => setShowSupportModal(false)} />}
 
@@ -1024,12 +1039,11 @@ const AppContent = () => {
 // Root App that renders Providers
 // Force Rebuild
 const App = () => {
+    // console.log("App Root Mounting");
     return (
         <React.StrictMode>
             <ErrorBoundary>
-                <ToastProvider>
-                    <AppContent />
-                </ToastProvider>
+                <AppContent />
             </ErrorBoundary>
         </React.StrictMode>
     )

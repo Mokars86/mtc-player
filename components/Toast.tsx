@@ -18,11 +18,16 @@ const ToastContext = createContext<ToastContextType | undefined>(undefined);
 
 export const useToast = () => {
   const context = useContext(ToastContext);
-  if (!context) throw new Error('useToast must be used within a ToastProvider');
+  // console.log('useToast context:', context);
+  if (!context) {
+    console.error("useToast context is missing!");
+    throw new Error('useToast must be used within a ToastProvider');
+  }
   return context;
 };
 
 export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  // console.log("ToastProvider rendering");
   const [toasts, setToasts] = useState<Toast[]>([]);
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
@@ -45,11 +50,10 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-center gap-3 p-4 rounded-xl shadow-2xl border backdrop-blur-md animate-slide-up transition-all ${
-              toast.type === 'success' ? 'bg-green-900/90 border-green-700 text-green-100' :
-              toast.type === 'error' ? 'bg-red-900/90 border-red-700 text-red-100' :
-              'bg-slate-800/90 border-slate-600 text-slate-100'
-            }`}
+            className={`pointer-events-auto flex items-center gap-3 p-4 rounded-xl shadow-2xl border backdrop-blur-md animate-slide-up transition-all ${toast.type === 'success' ? 'bg-green-900/90 border-green-700 text-green-100' :
+                toast.type === 'error' ? 'bg-red-900/90 border-red-700 text-red-100' :
+                  'bg-slate-800/90 border-slate-600 text-slate-100'
+              }`}
           >
             <div className="flex-shrink-0">
               {toast.type === 'success' && <Icons.Activity className="w-5 h-5 text-green-400" />}
