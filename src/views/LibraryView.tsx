@@ -4,8 +4,8 @@ import { MediaType, MediaItem, Playlist, AppView } from '../types';
 
 // Props Interface
 interface LibraryViewProps {
-    libraryTab: 'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL';
-    setLibraryTab: Dispatch<SetStateAction<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL'>>;
+    libraryTab: 'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY';
+    setLibraryTab: Dispatch<SetStateAction<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY'>>;
     playlists: Playlist[];
     openCreatePlaylistModal: () => void;
     deletePlaylist: (id: string, e: React.MouseEvent) => void;
@@ -31,13 +31,14 @@ interface LibraryViewProps {
     setShuffleOn: Dispatch<SetStateAction<boolean>>;
     removeFromPlaylist: (playlistId: string, trackId: string, e?: React.MouseEvent) => void;
     addToPlaylist: (playlistId: string, trackId: string) => void;
+    scanFolder: () => void;
 }
 
 export const LibraryView = ({
     libraryTab, setLibraryTab, playlists, openCreatePlaylistModal, deletePlaylist, favorites, toggleFavorite,
     allMedia, filteredMedia, albums, artists, selectedCollection, setSelectedCollection, searchQuery, setSearchQuery,
     playTrack, currentTrack, isPlaying, clearLocalLibrary, triggerFileUpload, removeFromLibrary, setTrackToAction,
-    localLibrary, isOnline, setShuffleOn, removeFromPlaylist, addToPlaylist
+    localLibrary, isOnline, setShuffleOn, removeFromPlaylist, addToPlaylist, scanFolder
 }: LibraryViewProps) => {
 
     return (
@@ -58,9 +59,14 @@ export const LibraryView = ({
                         </button>
                     )}
                     {!selectedCollection && (
-                        <button onClick={triggerFileUpload} className="flex items-center gap-2 bg-brand-dark hover:bg-brand-DEFAULT text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg">
-                            <Icons.PlusCircle className="w-5 h-5" /><span className="hidden sm:inline">Import</span>
-                        </button>
+                        <div className="flex gap-2">
+                            <button onClick={scanFolder} className="flex items-center gap-2 bg-app-card hover:bg-app-surface border border-app-border text-app-text px-4 py-2 rounded-lg transition-colors shadow-sm">
+                                <Icons.FolderPlus className="w-5 h-5" /><span className="hidden sm:inline">Scan Folder</span>
+                            </button>
+                            <button onClick={triggerFileUpload} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg">
+                                <Icons.PlusCircle className="w-5 h-5" /><span className="hidden sm:inline">Add Files</span>
+                            </button>
+                        </div>
                     )}
                 </div>
             </div>
@@ -73,7 +79,7 @@ export const LibraryView = ({
                     </div>
 
                     <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar">
-                        {(['ALL', 'AUDIO', 'VIDEO', 'FAVORITES', 'PLAYLISTS', 'ALBUMS', 'ARTISTS', 'LOCAL'] as const).map(tab => (
+                        {(['ALL', 'AUDIO', 'VIDEO', 'FAVORITES', 'PLAYLISTS', 'ALBUMS', 'ARTISTS', 'LOCAL', 'HISTORY'] as const).map(tab => (
                             <button key={tab} onClick={() => setLibraryTab(tab)} className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${libraryTab === tab ? 'bg-brand-accent text-white shadow-md' : 'bg-app-surface text-app-subtext hover:bg-app-card hover:text-app-text border border-app-border'}`}>
                                 {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
                             </button>
@@ -230,6 +236,7 @@ export const LibraryView = ({
                             {selectedCollection?.type === 'PLAYLIST' && <p className="text-sm mt-2">This playlist is empty. Add songs from your library.</p>}
                             {libraryTab === 'AUDIO' && <p className="text-sm mt-2">Add some music to your library.</p>}
                             {libraryTab === 'VIDEO' && <p className="text-sm mt-2">Add some videos to your library.</p>}
+                            {libraryTab === 'HISTORY' && <p className="text-sm mt-2">Play some tracks to see them here.</p>}
                         </div>
                     )}
                 </div>
