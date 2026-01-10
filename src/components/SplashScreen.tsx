@@ -11,10 +11,10 @@ export const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
             <div className="relative w-32 h-32 mb-8 group perspective-1000">
                 <div className="absolute inset-0 bg-brand-accent/20 rounded-3xl blur-xl animate-pulse"></div>
 
-                <div className="relative w-full h-full bg-gradient-to-br from-brand-dark to-black rounded-3xl shadow-2xl flex items-center justify-center border border-white/10 overflow-hidden">
+                <div className="relative w-full h-full bg-gradient-to-br from-teal-400 to-teal-600 rounded-3xl shadow-2xl flex items-center justify-center border border-teal-500/20 overflow-hidden">
                     {/* Abstract geometric shapes */}
-                    <div className="absolute -top-10 -right-10 w-24 h-24 bg-brand-light/20 rounded-full blur-md"></div>
-                    <div className="absolute -bottom-5 -left-5 w-20 h-20 bg-brand-accent/20 rounded-full blur-md"></div>
+                    <div className="absolute -top-10 -right-10 w-24 h-24 bg-white/10 rounded-full blur-md"></div>
+                    <div className="absolute -bottom-5 -left-5 w-20 h-20 bg-black/10 rounded-full blur-md"></div>
 
                     {/* Center Icon */}
                     <div className="relative z-10 flex flex-col items-center">
@@ -36,7 +36,7 @@ export const SplashScreen = ({ onComplete }: { onComplete: () => void }) => {
             </div>
 
             <div className="text-center z-10">
-                <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-brand-light tracking-tighter mb-2 drop-shadow-sm">MTc</h1>
+                <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-app-text to-brand-light tracking-tighter mb-2 drop-shadow-sm">MTc</h1>
                 <p className="text-brand-accent text-xs tracking-[0.4em] uppercase font-bold">Sonic Intelligence</p>
             </div>
 

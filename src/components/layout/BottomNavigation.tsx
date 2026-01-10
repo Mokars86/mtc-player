@@ -17,6 +17,7 @@ export const BottomNavigation = ({ currentView, setCurrentView }: BottomNavigati
                 <Icons.Play className="w-6 h-6 fill-white" />
             </div>
 
+            <button onClick={() => setCurrentView(AppView.RADIO)} className={`flex flex-col items-center gap-1 p-2 transition-colors ${currentView === AppView.RADIO ? 'text-brand-accent' : 'text-app-subtext hover:text-app-text'}`}><Icons.Radio className="w-6 h-6" /><span className="text-[10px] md:hidden font-medium">Radio</span></button>
             <button onClick={() => setCurrentView(AppView.AI_CHAT)} className={`flex flex-col items-center gap-1 p-2 transition-colors ${currentView === AppView.AI_CHAT ? 'text-brand-accent' : 'text-app-subtext hover:text-app-text'}`}><Icons.Wand2 className="w-6 h-6" /><span className="text-[10px] md:hidden font-medium">Assistant</span></button>
             <button onClick={() => setCurrentView(AppView.SETTINGS)} className={`flex flex-col items-center gap-1 p-2 transition-colors ${currentView === AppView.SETTINGS ? 'text-brand-accent' : 'text-app-subtext hover:text-app-text'}`}><Icons.Settings className="w-6 h-6" /><span className="text-[10px] md:hidden font-medium">Settings</span></button>
         </nav>

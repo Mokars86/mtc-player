@@ -32,24 +32,25 @@ interface LibraryViewProps {
     removeFromPlaylist: (playlistId: string, trackId: string, e?: React.MouseEvent) => void;
     addToPlaylist: (playlistId: string, trackId: string) => void;
     scanFolder: () => void;
+    onEditMetadata?: (track: MediaItem) => void;
 }
 
 export const LibraryView = ({
     libraryTab, setLibraryTab, playlists, openCreatePlaylistModal, deletePlaylist, favorites, toggleFavorite,
     allMedia, filteredMedia, albums, artists, selectedCollection, setSelectedCollection, searchQuery, setSearchQuery,
     playTrack, currentTrack, isPlaying, clearLocalLibrary, triggerFileUpload, removeFromLibrary, setTrackToAction,
-    localLibrary, isOnline, setShuffleOn, removeFromPlaylist, addToPlaylist, scanFolder
+    localLibrary, isOnline, setShuffleOn, removeFromPlaylist, addToPlaylist, scanFolder, onEditMetadata
 }: LibraryViewProps) => {
 
     return (
-        <div className="p-4 md:p-6 animate-slide-up min-h-full overflow-x-hidden">
+        <div className="p-4 md:p-6 animate-slide-up min-h-full overflow-x-hidden w-full max-w-5xl mx-auto">
             {/* Library Header */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
                     {selectedCollection ? (
                         <button onClick={() => setSelectedCollection(null)} className="p-1 hover:bg-app-surface rounded-full"><Icons.SkipBack className="w-6 h-6 rotate-180" /></button>
                     ) : null}
-                    <h1 className="text-3xl font-bold text-app-text">{selectedCollection ? selectedCollection.title : 'Library'}</h1>
+                    <h1 className="text-3xl font-bold text-app-text truncate max-w-[200px] sm:max-w-none">{selectedCollection ? selectedCollection.title : 'Library'}</h1>
                 </div>
                 <div className="flex gap-2">
                     {libraryTab === 'LOCAL' && localLibrary.length > 0 && !selectedCollection && (
@@ -60,11 +61,11 @@ export const LibraryView = ({
                     )}
                     {!selectedCollection && (
                         <div className="flex gap-2">
-                            <button onClick={scanFolder} className="flex items-center gap-2 bg-app-card hover:bg-app-surface border border-app-border text-app-text px-4 py-2 rounded-lg transition-colors shadow-sm">
-                                <Icons.FolderPlus className="w-5 h-5" /><span className="hidden sm:inline">Scan Folder</span>
+                            <button onClick={scanFolder} className="flex items-center gap-2 bg-app-card hover:bg-app-surface border border-app-border text-app-text px-3 py-2 rounded-lg transition-colors shadow-sm" title="Scan Folder">
+                                <Icons.FolderPlus className="w-5 h-5" /><span className="hidden sm:inline">Scan</span>
                             </button>
-                            <button onClick={triggerFileUpload} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg">
-                                <Icons.PlusCircle className="w-5 h-5" /><span className="hidden sm:inline">Add Files</span>
+                            <button onClick={triggerFileUpload} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg" title="Import Files">
+                                <Icons.PlusCircle className="w-5 h-5" /><span className="hidden sm:inline">Add</span>
                             </button>
                         </div>
                     )}
@@ -78,9 +79,9 @@ export const LibraryView = ({
                         <input type="text" placeholder="Search tracks, artists, moods..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full bg-app-surface border border-app-border rounded-xl py-3 pl-12 pr-4 text-app-text placeholder-app-subtext focus:outline-none focus:ring-2 focus:ring-brand-accent transition-all shadow-sm" />
                     </div>
 
-                    <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar">
+                    <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar pb-2">
                         {(['ALL', 'AUDIO', 'VIDEO', 'FAVORITES', 'PLAYLISTS', 'ALBUMS', 'ARTISTS', 'LOCAL', 'HISTORY'] as const).map(tab => (
-                            <button key={tab} onClick={() => setLibraryTab(tab)} className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap ${libraryTab === tab ? 'bg-brand-accent text-white shadow-md' : 'bg-app-surface text-app-subtext hover:bg-app-card hover:text-app-text border border-app-border'}`}>
+                            <button key={tab} onClick={() => setLibraryTab(tab)} className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap flex-shrink-0 ${libraryTab === tab ? 'bg-brand-accent text-white shadow-md transform scale-105' : 'bg-app-surface text-app-subtext hover:bg-app-card hover:text-app-text border border-app-border'}`}>
                                 {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
                             </button>
                         ))}
@@ -90,7 +91,7 @@ export const LibraryView = ({
 
             {/* PLAYLISTS TAB VIEW */}
             {!selectedCollection && libraryTab === 'PLAYLISTS' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-2 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7 gap-3 sm:gap-4">
                     <button onClick={openCreatePlaylistModal} className="aspect-square bg-app-surface border-2 border-dashed border-app-border rounded-xl flex flex-col items-center justify-center text-app-subtext hover:text-brand-accent hover:border-brand-accent transition-colors group">
                         <Icons.FolderPlus className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
                         <span className="font-bold text-sm">Create New</span>
@@ -98,7 +99,7 @@ export const LibraryView = ({
                     {playlists.map(playlist => {
                         const covers = playlist.tracks.slice(0, 4).map(tid => allMedia.find(m => m.id === tid)?.coverUrl).filter(Boolean);
                         return (
-                            <div key={playlist.id} onClick={() => setSelectedCollection({ type: 'PLAYLIST', id: playlist.id, title: playlist.name })} className="group relative aspect-square bg-app-card rounded-xl overflow-hidden cursor-pointer shadow-md border border-app-border">
+                            <div key={playlist.id} onClick={() => setSelectedCollection({ type: 'PLAYLIST', id: playlist.id, title: playlist.name })} className="group relative aspect-square bg-app-card rounded-xl overflow-hidden cursor-pointer shadow-md border border-app-border hover:shadow-xl transition-all">
                                 {covers.length > 0 ? (
                                     <div className="w-full h-full grid grid-cols-2">
                                         {covers.length === 1 ? (
@@ -115,7 +116,7 @@ export const LibraryView = ({
                                     <div className="w-full h-full flex items-center justify-center bg-brand-dark/20 text-brand-light"><Icons.ListMusic className="w-10 h-10 opacity-50" /></div>
                                 )}
                                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-3">
-                                    <h3 className="font-bold text-white truncate">{playlist.name}</h3>
+                                    <h3 className="font-bold text-white truncate text-sm">{playlist.name}</h3>
                                     <p className="text-xs text-gray-300">{playlist.tracks.length} tracks</p>
                                 </div>
                                 <button onClick={(e) => deletePlaylist(playlist.id, e)} className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
@@ -129,7 +130,7 @@ export const LibraryView = ({
 
             {/* ALBUMS TAB VIEW */}
             {!selectedCollection && libraryTab === 'ALBUMS' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3 sm:gap-4">
                     {Array.from(albums.entries()).map(([albumName, tracks]) => (
                         <div key={albumName} onClick={() => setSelectedCollection({ type: 'ALBUM', id: albumName, title: albumName })} className="group cursor-pointer">
                             <div className="aspect-square bg-app-card rounded-xl overflow-hidden mb-2 shadow-sm relative border border-app-border">
@@ -145,9 +146,9 @@ export const LibraryView = ({
 
             {/* ARTISTS TAB VIEW */}
             {!selectedCollection && libraryTab === 'ARTISTS' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-2 sm:gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-3 sm:gap-4">
                     {Array.from(artists.entries()).map(([artistName, tracks]) => (
-                        <div key={artistName} onClick={() => setSelectedCollection({ type: 'ARTIST', id: artistName, title: artistName })} className="group cursor-pointer flex flex-col items-center text-center p-4 bg-app-surface border border-app-border rounded-xl hover:bg-app-card transition-colors">
+                        <div key={artistName} onClick={() => setSelectedCollection({ type: 'ARTIST', id: artistName, title: artistName })} className="group cursor-pointer flex flex-col items-center text-center p-4 bg-app-surface border border-app-border rounded-xl hover:bg-app-card transition-colors shadow-sm hover:shadow-md">
                             <div className="w-24 h-24 rounded-full overflow-hidden mb-3 shadow-md border-2 border-app-border group-hover:border-brand-accent transition-colors">
                                 <img src={tracks[0].coverUrl} alt={artistName} className="w-full h-full object-cover" />
                             </div>
@@ -164,11 +165,11 @@ export const LibraryView = ({
                     {filteredMedia.length > 0 ? (
                         <div className="grid gap-3">
                             {selectedCollection && (
-                                <div className="flex gap-4 mb-4">
-                                    <button onClick={() => { playTrack(filteredMedia[0]); }} className="flex items-center gap-2 bg-brand-accent text-white px-6 py-3 rounded-full font-bold shadow-lg hover:bg-brand-light transition transform hover:scale-105">
+                                <div className="flex justify-center gap-4 mb-6">
+                                    <button onClick={() => { playTrack(filteredMedia[0]); }} className="flex items-center gap-2 bg-brand-accent text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-brand-light transition transform hover:scale-105 active:scale-95">
                                         <Icons.Play className="w-5 h-5 fill-current" /> Play All
                                     </button>
-                                    <button onClick={() => setShuffleOn(true)} className="flex items-center gap-2 bg-app-surface text-app-text border border-app-border px-4 py-3 rounded-full font-bold hover:bg-app-card transition">
+                                    <button onClick={() => setShuffleOn(true)} className="flex items-center gap-2 bg-app-surface text-app-text border border-app-border px-8 py-3 rounded-full font-bold hover:bg-app-card transition shadow-sm hover:shadow active:scale-95">
                                         <Icons.Shuffle className="w-5 h-5" /> Shuffle
                                     </button>
                                 </div>
@@ -219,9 +220,16 @@ export const LibraryView = ({
                                             </button>
                                         )}
                                         {media.id.startsWith('local') && !selectedCollection && (
-                                            <button onClick={(e) => removeFromLibrary(media.id, e)} className="p-2 rounded-full hover:bg-red-500/10 text-app-subtext hover:text-red-500 transition-colors" title="Delete File">
-                                                <Icons.Trash2 className="w-5 h-5" />
-                                            </button>
+                                            <>
+                                                {onEditMetadata && (
+                                                    <button onClick={(e) => { e.stopPropagation(); onEditMetadata(media); }} className="p-2 rounded-full hover:bg-app-bg text-app-subtext hover:text-brand-accent transition-colors" title="Edit Metadata">
+                                                        <Icons.Edit className="w-5 h-5" />
+                                                    </button>
+                                                )}
+                                                <button onClick={(e) => removeFromLibrary(media.id, e)} className="p-2 rounded-full hover:bg-red-500/10 text-app-subtext hover:text-red-500 transition-colors" title="Delete File">
+                                                    <Icons.Trash2 className="w-5 h-5" />
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </div>

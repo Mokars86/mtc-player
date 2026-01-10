@@ -69,5 +69,19 @@ export const SKINS: Skin[] = [
             accent: '#0d9488', // Teal
             secondary: '#db2777'
         }
+    },
+    {
+        id: 'orange',
+        name: 'Neon Orange',
+        colors: {
+            bgApp: '#0c0a09', // Stone 950
+            bgCard: '#1c1917', // Stone 900
+            bgSurface: '#292524', // Stone 800
+            textMain: '#fafaf9',
+            textSub: '#a8a29e', // Stone 400
+            border: '#44403c', // Stone 700
+            accent: '#f97316', // Orange 500
+            secondary: '#eab308' // Yellow 500
+        }
     }
 ];

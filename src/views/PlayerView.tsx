@@ -2,8 +2,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Icons } from '../components/Icon';
 import { MediaItem, RepeatMode, MediaType, GestureSettings, GestureType, GestureAction, EqSettings, PresetName } from '../types';
+import { PartyState, partySession } from '../services/partySessionService';
 import AudioEngine from '../components/AudioEngine';
 import { translateLyrics } from '../services/geminiService';
+import { VisualizerOverlay } from '../components/VisualizerOverlay';
+import { fetchLyrics } from '../services/lyricsService';
 
 interface PlayerViewProps {
     currentTrack: MediaItem;
@@ -29,6 +32,7 @@ interface PlayerViewProps {
     onUpdateEq?: (settings: EqSettings) => void;
     sleepTimerActive?: boolean;
     onSetSleepTimer?: (minutes: number | null) => void;
+    partyState?: PartyState | null;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
@@ -51,16 +55,20 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     onUpdateTime,
     onUpdateDuration,
     gestureSettings,
-    eqSettings = { preset: 'Flat', gains: { 60: 0, 250: 0, 1000: 0, 4000: 0, 16000: 0 } },
+    eqSettings = { preset: 'Flat', auto: false, gains: { 60: 0, 250: 0, 1000: 0, 4000: 0, 16000: 0 } },
     onUpdateEq,
+
     sleepTimerActive,
-    onSetSleepTimer
+    onSetSleepTimer,
+    partyState
 }) => {
     const [showLyrics, setShowLyrics] = useState(false);
     const [volume, setVolume] = useState(() => audioElement ? audioElement.volume : 1);
     const [isZoomed, setIsZoomed] = useState(false);
     const [showEq, setShowEq] = useState(false);
     const [showSleepMenu, setShowSleepMenu] = useState(false);
+    const [showVisualizer, setShowVisualizer] = useState(false);
+    const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
 
     // Playback Speed State
     const [playbackRate, setPlaybackRate] = useState(1);
@@ -273,96 +281,185 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     };
 
     const handleTranslate = async () => {
-        if (!currentTrack.lyrics) return;
+        if (!currentTrack.lyrics && !fetchedLyrics) return; // Need source
         if (translatedLyrics) {
             setTranslatedLyrics(null); // Toggle off
             return;
         }
 
         setIsTranslating(true);
-        const fullText = currentTrack.lyrics.map(l => l.text).join('\n');
-        const result = await translateLyrics(fullText);
+        const text = currentTrack.lyrics ? currentTrack.lyrics.map(l => l.text).join('\n') : fetchedLyrics || '';
+        const result = await translateLyrics(text);
         setTranslatedLyrics(result);
         setIsTranslating(false);
     };
 
+    const [fetchedLyrics, setFetchedLyrics] = useState<string | null>(null);
+
+    useEffect(() => {
+        setFetchedLyrics(null);
+        setTranslatedLyrics(null);
+        if (!currentTrack.lyrics && currentTrack.title && currentTrack.artist) {
+            fetchLyrics(currentTrack.artist, currentTrack.title).then(setFetchedLyrics);
+        }
+    }, [currentTrack]);
+
+    // Party Mode Sync
+    useEffect(() => {
+        if (!partyState || !partyState.roomId) return;
+
+        // If I am hosting, I broadcast my state changes
+        // This is handled in the handlers (onPlayPause, onSeek, etc - need to be wrapped)
+        // But for now, let's just Listen if I am NOT host
+
+        if (!partyState.isHost) {
+            const handlePartyEvent = (event: any) => {
+                const { type, payload } = event;
+                if (type === 'play') {
+                    if (audioElement && audioElement.paused) {
+                        // Attempt to sync time if significantly off
+                        if (Math.abs(audioElement.currentTime - payload.currentTime) > 0.5) {
+                            audioElement.currentTime = payload.currentTime;
+                        }
+                        audioElement.play().catch(e => console.error("Party Play failed", e));
+                    }
+                } else if (type === 'pause') {
+                    if (audioElement && !audioElement.paused) {
+                        audioElement.pause();
+                    }
+                } else if (type === 'seek') {
+                    if (audioElement) {
+                        audioElement.currentTime = payload.currentTime;
+                    }
+                }
+            };
+            partySession.onEvent(handlePartyEvent);
+            return () => partySession.offEvent(handlePartyEvent);
+        } else {
+            // I am Host. I should broadcast periodic sync? 
+            // Or rely on my actions triggering broadcasts (which we need to wrap next)
+        }
+    }, [partyState, audioElement]);
+
+    // Enhanced Handlers that Broadcast
+    const handlePlayPause = () => {
+        onPlayPause();
+        if (partyState?.isHost) {
+            partySession.broadcast(isPlaying ? 'pause' : 'play', { currentTime: currentTime });
+        }
+    };
+
+    // We need to intercept standard props to inject broadcast logic
+    // But since we can't easily wrap props without changing App.tsx passing them,
+    // We will use a useEffect to detect state changes if we want to be less intrusive,
+    // OR just wrap the specific actions we have access to here.
+    // 'onPlayPause' is a prop. We can call it, then broadcast. 
+
+    // Wait, 'isPlaying' is a prop passed down. 
+    // If we use 'onPlayPause', it toggles state in App.tsx. 
+    // Effect in App.tsx changes 'isPlaying'.
+    // We can use an effect here to detect 'isPlaying' change?
+    // BUT, that would trigger when Guest receives a sync event too... loop risk.
+
+    // Better: Wrap the UI buttons.
+
     const isVideo = currentTrack.type === MediaType.VIDEO;
 
     return (
-        <div
-            className="fixed inset-0 z-50 bg-app-bg flex flex-col animate-slide-up transition-colors duration-300"
+        <div className="fixed inset-0 z-50 flex flex-col bg-app-bg text-app-text animate-in slide-in-from-bottom duration-300"
             onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
         >
             {/* Gesture Feedback */}
             {gestureFeedback && (
-                <div className="absolute inset-0 z-[60] flex items-center justify-center pointer-events-none">
-                    <div className="bg-black/70 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center animate-fade-in text-white shadow-2xl">
-                        <div className="mb-2 text-brand-accent scale-150">{gestureFeedback.icon}</div>
-                        <span className="text-xl font-bold font-mono">{gestureFeedback.value}</span>
-                    </div>
+                <div className="bg-black/70 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center animate-fade-in text-white shadow-2xl">
+                    <div className="mb-2 text-brand-accent scale-150">{gestureFeedback.icon}</div>
+                    <span className="text-xl font-bold font-mono">{gestureFeedback.value}</span>
                 </div>
             )}
 
+
             {/* Background Blur */}
-            {!isVideo && (
-                <div className="absolute inset-0 z-0 overflow-hidden">
-                    <img src={currentTrack.coverUrl} className="w-full h-full object-cover opacity-10 blur-3xl scale-125" alt="bg" />
-                    <div className="absolute inset-0 bg-gradient-to-b from-app-bg/80 via-app-bg/95 to-app-bg" />
-                </div>
+            {
+                !isVideo && (
+                    <div className="absolute inset-0 z-0 overflow-hidden">
+                        <img src={currentTrack.coverUrl} className="w-full h-full object-cover opacity-10 blur-3xl scale-125" alt="bg" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-app-bg/80 via-app-bg/95 to-app-bg" />
+                    </div>
+                )
+            }
+
+            {/* Visualizer Overlay */}
+            {showVisualizer && analyser && (
+                <VisualizerOverlay analyser={analyser} onClose={() => setShowVisualizer(false)} />
             )}
 
             {/* EQ Modal */}
-            {showEq && (
-                <div className="absolute inset-0 z-[70] bg-black/60 backdrop-blur-md flex items-end md:items-center justify-center p-4 animate-fade-in" onClick={() => setShowEq(false)}>
-                    <div className="bg-app-card border border-app-border rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-6">
-                            <h2 className="text-lg font-bold text-app-text flex items-center gap-2"><Icons.Sliders className="w-5 h-5" /> Equalizer</h2>
-                            <button onClick={() => setShowEq(false)} className="p-1 hover:bg-app-bg rounded-full text-app-subtext"><Icons.Minimize2 /></button>
-                        </div>
+            {
+                showEq && (
+                    <div className="absolute inset-0 z-[70] bg-black/60 backdrop-blur-md flex items-end md:items-center justify-center p-4 animate-fade-in" onClick={() => setShowEq(false)}>
+                        <div className="bg-app-card border border-app-border rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-lg font-bold text-app-text flex items-center gap-2"><Icons.Sliders className="w-5 h-5" /> Equalizer</h2>
+                                <button onClick={() => setShowEq(false)} className="p-1 hover:bg-app-bg rounded-full text-app-subtext"><Icons.Minimize2 /></button>
+                            </div>
 
-                        {/* Presets */}
-                        <div className="flex gap-2 overflow-x-auto pb-4 mb-4 hide-scrollbar">
-                            {(['Flat', 'Bass Boost', 'Vocal', 'Treble'] as PresetName[]).map(p => (
-                                <button key={p} onClick={() => applyPreset(p)} className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${eqSettings.preset === p ? 'bg-brand-accent text-white border-brand-accent' : 'bg-app-bg text-app-subtext border-app-border hover:text-app-text'}`}>
-                                    {p}
+                            {/* Presets */}
+                            <div className="flex gap-2 overflow-x-auto pb-4 mb-4 hide-scrollbar">
+                                <button
+                                    onClick={() => onUpdateEq && onUpdateEq({ ...eqSettings, auto: !eqSettings.auto, preset: 'Custom' })}
+                                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border flex items-center gap-1 ${eqSettings.auto ? 'bg-purple-500 text-white border-purple-500' : 'bg-app-bg text-app-subtext border-app-border hover:text-app-text'}`}
+                                >
+                                    <Icons.Sparkles className="w-3 h-3" /> Auto
                                 </button>
-                            ))}
-                        </div>
+                                {(['Flat', 'Bass Boost', 'Vocal', 'Treble'] as PresetName[]).map(p => (
+                                    <button
+                                        key={p}
+                                        onClick={() => applyPreset(p)}
+                                        disabled={eqSettings.auto}
+                                        className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${eqSettings.preset === p && !eqSettings.auto ? 'bg-brand-accent text-white border-brand-accent' : 'bg-app-bg text-app-subtext border-app-border hover:text-app-text disabled:opacity-50'}`}
+                                    >
+                                        {p}
+                                    </button>
+                                ))}
+                            </div>
 
-                        {/* Sliders */}
-                        <div className="flex justify-between h-48 px-2">
-                            {[60, 250, 1000, 4000, 16000].map(freq => (
-                                <div key={freq} className="flex flex-col items-center gap-2 h-full">
-                                    <input
-                                        type="range" min="-12" max="12" step="1"
-                                        value={eqSettings.gains[freq as keyof typeof eqSettings.gains]}
-                                        onChange={(e) => handleEqChange(freq, Number(e.target.value))}
-                                        className="h-full w-2 bg-app-bg rounded-full appearance-none cursor-pointer accent-brand-accent vertical-slider"
-                                        style={{ writingMode: 'vertical-lr', WebkitAppearance: 'slider-vertical' }}
-                                    />
-                                    <span className="text-[10px] text-app-subtext font-mono">{freq < 1000 ? freq : freq / 1000 + 'k'}</span>
-                                </div>
-                            ))}
+                            {/* Sliders */}
+                            <div className="flex justify-between h-48 px-2">
+                                {[60, 250, 1000, 4000, 16000].map(freq => (
+                                    <div key={freq} className="flex flex-col items-center gap-2 h-full">
+                                        <input
+                                            type="range" min="-12" max="12" step="1"
+                                            value={eqSettings.gains[freq as keyof typeof eqSettings.gains]}
+                                            onChange={(e) => handleEqChange(freq, Number(e.target.value))}
+                                            className="h-full w-2 bg-app-bg rounded-full appearance-none cursor-pointer accent-brand-accent vertical-slider"
+                                            style={{ writingMode: 'vertical-lr', WebkitAppearance: 'slider-vertical' }}
+                                        />
+                                        <span className="text-[10px] text-app-subtext font-mono">{freq < 1000 ? freq : freq / 1000 + 'k'}</span>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Sleep Timer Menu */}
-            {showSleepMenu && (
-                <div className="absolute top-20 right-6 z-[70] bg-app-card border border-app-border rounded-xl shadow-xl p-2 w-48 animate-fade-in">
-                    <div className="text-xs font-bold text-app-subtext uppercase px-3 py-2">Sleep Timer</div>
-                    {[15, 30, 60].map(m => (
-                        <button key={m} onClick={() => { onSetSleepTimer?.(m); setShowSleepMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-app-text hover:bg-app-bg rounded-lg transition-colors">
-                            {m} Minutes
+            {
+                showSleepMenu && (
+                    <div className="absolute top-20 right-6 z-[70] bg-app-card border border-app-border rounded-xl shadow-xl p-2 w-48 animate-fade-in">
+                        <div className="text-xs font-bold text-app-subtext uppercase px-3 py-2">Sleep Timer</div>
+                        {[15, 30, 60].map(m => (
+                            <button key={m} onClick={() => { onSetSleepTimer?.(m); setShowSleepMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-app-text hover:bg-app-bg rounded-lg transition-colors">
+                                {m} Minutes
+                            </button>
+                        ))}
+                        <div className="h-px bg-app-border my-1"></div>
+                        <button onClick={() => { onSetSleepTimer?.(null); setShowSleepMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-app-bg rounded-lg transition-colors">
+                            Turn Off
                         </button>
-                    ))}
-                    <div className="h-px bg-app-border my-1"></div>
-                    <button onClick={() => { onSetSleepTimer?.(null); setShowSleepMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-app-bg rounded-lg transition-colors">
-                        Turn Off
-                    </button>
-                </div>
-            )}
+                    </div>
+                )
+            }
 
             {/* MAIN CONTENT AREA */}
             <div className="flex-1 flex flex-col relative overflow-hidden md:flex-row md:items-center md:justify-center md:gap-12 md:max-w-5xl md:mx-auto md:w-full md:px-8">
@@ -389,6 +486,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                         <button onClick={() => setShowEq(!showEq)} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md">
                             <Icons.Sliders className="w-6 h-6" />
                         </button>
+                        {!isVideo && (
+                            <button onClick={() => setShowVisualizer(true)} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md animate-pulse">
+                                <Icons.Activity className="w-6 h-6" />
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -407,8 +509,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                         <div className={`absolute inset-0 bg-black/40 flex flex-col justify-between transition-opacity duration-300 ${showVideoControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
                             {/* Top bar handled by main header z-index */}
                             <div className="flex-1 flex items-center justify-center">
-                                <button onClick={(e) => { e.stopPropagation(); onPlayPause(); }} className="p-4 rounded-full bg-white/20 hover:bg-white/30 backdrop-blur-md text-white transition-transform transform active:scale-95">
-                                    {isPlaying ? <Icons.Pause className="w-12 h-12 fill-current" /> : <Icons.Play className="w-12 h-12 fill-current ml-1" />}
+                                <button
+                                    onClick={handlePlayPause}
+                                    className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-accent/20"
+                                >
+                                    {isPlaying ? <Icons.Pause className="w-8 h-8 fill-current" /> : <Icons.Play className="w-8 h-8 fill-current ml-1" />}
                                 </button>
                             </div>
 
@@ -418,6 +523,18 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                     type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange}
                                     className="w-full h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-brand-accent hover:h-2 transition-all"
                                 />
+                                <div className="flex flex-col items-center">
+                                    <div className="w-12 h-1 bg-white/20 rounded-full mb-6" />
+
+                                    {partyState && partyState.roomId && (
+                                        <div className="mb-4 px-3 py-1 bg-brand-accent/20 border border-brand-accent/50 rounded-full flex items-center gap-2 animate-pulse">
+                                            <Icons.Radio className="w-3 h-3 text-brand-accent" />
+                                            <span className="text-xs font-bold text-brand-light uppercase tracking-wider">
+                                                {partyState.isHost ? 'Hosting Party' : 'Live Party'} • {partyState.userCount} Listening
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
                                 <div className="flex justify-between items-center">
                                     <div className="flex items-center gap-4 text-white">
                                         <span className="text-xs font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
@@ -438,7 +555,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                         {/* Left Side: Artwork/Visualizer */}
                         {/* Mobile: P-4, min-h-0 to allow shrinking. Desktop: P-0, auto height. */}
                         <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0 relative w-full md:w-1/2 md:max-w-none md:p-0 md:min-h-auto">
-                            <div className={`relative w-full max-w-[85vw] aspect-square rounded-2xl overflow-hidden shadow-2xl transition-transform duration-500 ${isZoomed ? 'scale-110 z-20' : ''}`} onClick={() => setIsZoomed(!isZoomed)}>
+                            <div className={`relative w-full max-w-[85vw] aspect-square ${showLyrics ? 'rounded-2xl' : 'rounded-full'} overflow-hidden shadow-2xl transition-all duration-500 ${isZoomed ? 'scale-110 z-20' : ''} ${isPlaying && !showLyrics ? 'animate-spin-slow' : ''}`} onClick={() => setIsZoomed(!isZoomed)}>
                                 {showLyrics ? (
                                     <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col p-6 overflow-y-auto text-center scroll-smooth no-scrollbar">
                                         <div className="flex justify-between items-center mb-4 sticky top-0">
@@ -464,16 +581,35 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                                         </p>
                                                     ))}
                                                 </div>
-                                            ) : <p className="text-white/50 mt-20">No lyrics available.</p>
+                                            ) : fetchedLyrics ? (
+                                                <p className="text-white/80 leading-relaxed whitespace-pre-line font-medium text-sm py-4">{fetchedLyrics}</p>
+                                            ) : <div className="flex flex-col items-center justify-center h-48 space-y-4">
+                                                <Icons.Music className="w-12 h-12 text-white/20" />
+                                                <p className="text-white/50">No lyrics found.</p>
+                                            </div>
                                         )}
                                     </div>
                                 ) : (
                                     <>
                                         <img src={currentTrack.coverUrl} className="w-full h-full object-cover" />
+                                        {/* Vinyl Center Hole */}
+                                        <div className="absolute inset-0 flex items-center justify-center">
+                                            <div className="w-4 h-4 bg-[#1a1a1a] rounded-full border border-[#27272a] shadow-inner z-10"></div>
+                                            {/* Optional: Inner Label Ring */}
+                                            <div className="absolute w-24 h-24 rounded-full border-[20px] border-black/10"></div>
+                                        </div>
                                         {/* Audio Engine (Visualizer) Overlay */}
                                         <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0">
                                             <div className="w-full h-full opacity-80">
-                                                <AudioEngine audioElement={audioElement} isPlaying={isPlaying} color="#2dd4bf" eqSettings={eqSettings} />
+                                                <div className="w-full h-full opacity-80">
+                                                    <AudioEngine
+                                                        audioElement={audioElement}
+                                                        isPlaying={isPlaying}
+                                                        color="#2dd4bf"
+                                                        eqSettings={eqSettings}
+                                                        onAnalyserReady={setAnalyser}
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
                                     </>

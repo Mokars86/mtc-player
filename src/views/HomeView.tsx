@@ -3,6 +3,7 @@ import { Icons } from '../components/Icon';
 import { MOODS } from '../constants';
 import { generatePlaylistByMood, hasApiKey } from '../services/geminiService';
 import { MediaItem } from '../types';
+import { VoiceInput } from '../components/VoiceInput';
 
 interface HomeViewProps {
   onPlayDemo: () => void;
@@ -15,11 +16,17 @@ interface HomeViewProps {
   stats: { tracks: number, artists: number, playlists: number };
   favorites: MediaItem[];
   onOpenHistory: () => void;
+  onOpenStats: () => void;
+  onCreatePlaylist: () => void;
+  onStartParty: () => void;
+  onVoiceCommand: (text: string) => void;
+  isVoiceProcessing: boolean;
 }
 
 const HomeView: React.FC<HomeViewProps> = ({
   onPlayDemo, onOpenProfile, userName, isOnline,
-  recentlyPlayed, onPlayTrack, onShuffleAll, stats, favorites, onOpenHistory
+  recentlyPlayed, onPlayTrack, onShuffleAll, stats, favorites, onOpenHistory, onOpenStats, onCreatePlaylist, onStartParty,
+  onVoiceCommand, isVoiceProcessing
 }) => {
   const [aiSuggestions, setAiSuggestions] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -54,9 +61,13 @@ const HomeView: React.FC<HomeViewProps> = ({
               </h1>
               <p className="text-brand-light font-medium mt-1 text-lg">{userName.split(' ')[0]}</p>
             </div>
-            <button onClick={onOpenProfile} className="md:hidden w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer flex-shrink-0">
-              <img src={`https://ui-avatars.com/api/?name=${userName}&background=0d9488&color=fff`} alt="Profile" className="w-full h-full object-cover" />
-            </button>
+
+            <div className="flex items-center gap-3">
+              <VoiceInput onCommand={onVoiceCommand} isProcessing={isVoiceProcessing} />
+              <button onClick={onOpenProfile} className="md:hidden w-12 h-12 rounded-full bg-brand-dark overflow-hidden border-2 border-brand-accent hover:scale-105 transition-transform shadow-xl cursor-pointer flex-shrink-0">
+                <img src={`https://ui-avatars.com/api/?name=${userName}&background=0d9488&color=fff`} alt="Profile" className="w-full h-full object-cover" />
+              </button>
+            </div>
           </div>
 
           {/* Quick Stats */}
@@ -66,19 +77,40 @@ const HomeView: React.FC<HomeViewProps> = ({
             <span className="flex items-center gap-1"><Icons.ListMusic className="w-3 h-3" /> {stats.playlists} Playlists</span>
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="flex flex-col sm:flex-row gap-3 overflow-x-auto pb-2 scrollbar-hide">
+            <button
+              onClick={onCreatePlaylist}
+              className="px-6 py-3 bg-brand-accent hover:bg-brand-light text-white rounded-full font-bold shadow-lg shadow-brand-accent/25 flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 whitespace-nowrap"
+            >
+              <Icons.PlusCircle className="w-4 h-4 flex-shrink-0" /> New Playlist
+            </button>
+
             <button
               onClick={onShuffleAll}
-              className="px-6 py-3 bg-brand-accent hover:bg-brand-light text-white rounded-full font-bold shadow-lg shadow-brand-accent/25 flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 w-full sm:w-auto whitespace-nowrap"
+              className="px-6 py-3 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text rounded-full font-bold shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 whitespace-nowrap"
             >
-              <Icons.Shuffle className="w-4 h-4 flex-shrink-0" /> Feeling Lucky
+              <Icons.Shuffle className="w-4 h-4 flex-shrink-0" /> Lucky
+            </button>
+
+            <button
+              onClick={onOpenStats}
+              className="px-6 py-3 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text rounded-full font-bold shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 whitespace-nowrap"
+            >
+              <Icons.BarChart2 className="w-4 h-4 flex-shrink-0" /> My Stats
             </button>
 
             <button
               onClick={onOpenHistory}
-              className="px-6 py-3 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text rounded-full font-bold shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 w-full sm:w-auto whitespace-nowrap"
+              className="px-6 py-3 bg-app-card hover:bg-app-card/80 border border-app-border text-app-text rounded-full font-bold shadow-lg flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 whitespace-nowrap"
             >
               <Icons.History className="w-4 h-4 flex-shrink-0" /> History
+            </button>
+
+            <button
+              onClick={onStartParty}
+              className="px-6 py-3 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-400 hover:to-pink-400 text-white rounded-full font-bold shadow-lg shadow-purple-500/25 flex items-center justify-center gap-2 transition-transform hover:scale-105 active:scale-95 whitespace-nowrap"
+            >
+              <Icons.Users className="w-4 h-4 flex-shrink-0" /> Party
             </button>
           </div>
         </div>

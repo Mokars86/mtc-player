@@ -3,7 +3,8 @@ export enum MediaType {
   MUSIC = 'MUSIC',
   VIDEO = 'VIDEO',
   PODCAST = 'PODCAST',
-  AUDIOBOOK = 'AUDIOBOOK'
+  AUDIOBOOK = 'AUDIOBOOK',
+  RADIO = 'RADIO'
 }
 
 export interface MediaItem {
@@ -17,6 +18,9 @@ export interface MediaItem {
   duration: number; // in seconds
   moods?: string[];
   lyrics?: LyricLine[];
+  playCount?: number;
+  lastPlayed?: number; // timestamp
+  tags?: string[]; // For Radio genres
 }
 
 export interface LyricLine {
@@ -37,7 +41,9 @@ export enum AppView {
   LIBRARY = 'LIBRARY',
   PLAYER = 'PLAYER', // Full screen player
   SETTINGS = 'SETTINGS',
-  AI_CHAT = 'AI_CHAT'
+  AI_CHAT = 'AI_CHAT',
+  STATS = 'STATS',
+  RADIO = 'RADIO'
 }
 
 export enum PlayerState {
@@ -84,6 +90,7 @@ export type PresetName = 'Flat' | 'Bass Boost' | 'Vocal' | 'Treble' | 'Custom';
 
 export interface EqSettings {
   preset: PresetName;
+  auto?: boolean; // Smart EQ
   gains: {
     60: number;   // Bass
     250: number;  // Low-Mids

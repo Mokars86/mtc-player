@@ -2,7 +2,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { MediaItem } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Helper to check if API key is present
 export const hasApiKey = () => !!process.env.API_KEY;
@@ -26,33 +26,33 @@ export const generatePlaylistByMood = async (mood: string): Promise<string> => {
 };
 
 export const getSmartSummary = async (text: string): Promise<string> => {
-    if (!hasApiKey()) return "API Key missing.";
+  if (!hasApiKey()) return "API Key missing.";
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Summarize the following podcast transcript into 3 key bullet points:\n\n${text}`
-        });
-        return response.text || "Could not generate summary.";
-    } catch (error) {
-        console.error("Gemini Summary Error:", error);
-        return "Could not generate summary.";
-    }
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Summarize the following podcast transcript into 3 key bullet points:\n\n${text}`
+    });
+    return response.text || "Could not generate summary.";
+  } catch (error) {
+    console.error("Gemini Summary Error:", error);
+    return "Could not generate summary.";
+  }
 };
 
 export const translateLyrics = async (lyrics: string, targetLang: string = 'English'): Promise<string> => {
-    if (!hasApiKey()) return lyrics; // Fallback
+  if (!hasApiKey()) return lyrics; // Fallback
 
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
-            contents: `Translate the following lyrics to ${targetLang}. Maintain the rhythm and line breaks if possible:\n\n${lyrics}`
-        });
-        return response.text || lyrics;
-    } catch (error) {
-        console.error("Gemini Translate Error:", error);
-        return lyrics;
-    }
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `Translate the following lyrics to ${targetLang}. Maintain the rhythm and line breaks if possible:\n\n${lyrics}`
+    });
+    return response.text || lyrics;
+  } catch (error) {
+    console.error("Gemini Translate Error:", error);
+    return lyrics;
+  }
 }
 
 export interface ChatMessage {
@@ -64,7 +64,7 @@ export const chatWithMusicGenius = async (history: ChatMessage[], message: strin
   if (!hasApiKey()) return "I need an API Key to function. Please configure it in your environment.";
 
   try {
-    const contextPrompt = currentTrack 
+    const contextPrompt = currentTrack
       ? `The user is currently listening to "${currentTrack.title}" by "${currentTrack.artist}" (Type: ${currentTrack.type}). Use this context if they ask about "this song" or "this artist". `
       : `The user is not playing any music right now. `;
 
@@ -90,5 +90,55 @@ export const chatWithMusicGenius = async (history: ChatMessage[], message: strin
   } catch (error) {
     console.error("Gemini Chat Error:", error);
     return "I'm having trouble connecting to the music knowledge base right now.";
+  }
+};
+
+export interface AICommand {
+  action: 'PLAY' | 'QUEUE' | 'SHUFFLE' | 'PAUSE' | 'RESUME' | 'NEXT' | 'PREV' | 'UNKNOWN';
+  params?: {
+    song?: string;
+    artist?: string;
+    genre?: string;
+    mood?: string;
+  };
+  feedback: string; // Text response to speak back
+}
+
+export const processVoiceCommand = async (transcript: string, availableTracks: MediaItem[]): Promise<AICommand> => {
+  if (!hasApiKey()) return { action: 'UNKNOWN', feedback: "I can't process commands without an API key." };
+
+  try {
+    // Create a mini-context of available music (limit to avoid token limits if library is huge)
+    // For now, we'll just send a summary or specialized prompt, 
+    // essentially asking Gemini to extract intent.
+    // If library is small (<100 songs), we can pass names. 
+    // For now, let's assume we want Gemini to just extract the *intent* and *entities*, 
+    // and we match them locally or let Gemini match if we pass a list.
+
+    const trackListSnippet = availableTracks.slice(0, 50).map(t => `"${t.title}" by ${t.artist}`).join(", ");
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: `
+                You are a smart DJ. Interpret this voice command: "${transcript}".
+                Available tracks snippet: ${trackListSnippet}... (and more).
+                
+                Return a JSON object with:
+                - action: "PLAY", "QUEUE", "SHUFFLE", "PAUSE", "RESUME", "NEXT", "PREV", "UNKNOWN"
+                - params: { song, artist, genre, mood } (extract if present)
+                - feedback: A short, natural confirmation phrase (e.g. "Playing some smooth jazz", "Queuing that up").
+                
+                Do NOT use markdown. Just raw JSON.
+            `,
+      config: { responseMimeType: 'application/json' }
+    });
+
+    const text = response.text || "{}";
+    const cleanJson = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(cleanJson) as AICommand;
+
+  } catch (error) {
+    console.error("Gemini Voice Command Error:", error);
+    return { action: 'UNKNOWN', feedback: "Sorry, I didn't catch that." };
   }
 };

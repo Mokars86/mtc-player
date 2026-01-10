@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
 import { AppView, MediaItem, MediaType, RepeatMode, GestureType, GestureAction, GestureSettings, EqSettings, SleepTimer, Playlist, Theme } from './types';
 import { SKINS, Skin } from './constants/skins';
 import { Icons } from './components/Icon';
@@ -21,28 +22,40 @@ import { MiniPlayer } from './components/player/MiniPlayer';
 import { ProfileModal } from './components/modals/ProfileModal';
 import { CreatePlaylistModal } from './components/modals/CreatePlaylistModal';
 import { AddToPlaylistModal } from './components/modals/AddToPlaylistModal';
+import { PartyModeModal } from './components/modals/PartyModeModal';
+import { partySession, PartyState } from './services/partySessionService';
+import { processVoiceCommand } from './services/geminiService';
+import { updateMediaItem, incrementPlayCount } from './services/db';
+import { MetadataEditorModal } from './components/modals/MetadataEditorModal';
 import { SupportModal } from './components/modals/SupportModal';
-import { LibraryView } from './views/LibraryView'; // Placeholder import, implies we will extract LibraryView too
+import { fetchCoverArt } from './services/coverArtService';
 
-// Sync Status Indicator Component moved to components/SyncStatus.tsx
-// SplashScreen moved to components/SplashScreen.tsx
+import { LibraryView } from './views/LibraryView';
+import { StatsView } from './views/StatsView';
+import { RadioView } from './views/RadioView';
+
 
 // Internal App Component (Wrapped by Providers below)
 const AppContent = () => {
     // Auth State
     const [session, setSession] = useState<any>(null);
-    const [isGuest, setIsGuest] = useState(false);
+    const [showPlaylistModal, setShowPlaylistModal] = useState(false);
+    const [showPartyModal, setShowPartyModal] = useState(false);
+    const [pendingPartyId, setPendingPartyId] = useState<string | undefined>(undefined);
+    const [partyState, setPartyState] = useState<PartyState | null>(null);
 
-    const [showSplash, setShowSplash] = useState(true);
+    const [isGuest, setIsGuest] = useState(false);
+    const [userName, setUserName] = useState("Guest User");
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
 
+    const [showSplash, setShowSplash] = useState(true);
     const [currentView, setCurrentView] = useState<AppView>(AppView.HOME);
     const [currentTrack, setCurrentTrack] = useState<MediaItem | null>(null);
     const [isPlaying, setIsPlaying] = useState(false);
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
-    const [theme, setTheme] = useState<Theme>('cyberpunk');
+    const [theme, setTheme] = useState<Theme>('light');
 
     // Apply Theme/Skin
     useEffect(() => {
@@ -66,11 +79,11 @@ const AppContent = () => {
         }
     }, [theme]);
 
+
     // Offline / Network State
     const [isOnline, setIsOnline] = useState(navigator.onLine);
 
     // User Profile State
-    const [userName, setUserName] = useState('Guest User');
     const [showProfileModal, setShowProfileModal] = useState(false);
     const [showSupportModal, setShowSupportModal] = useState(false);
 
@@ -95,7 +108,6 @@ const AppContent = () => {
 
     // Playlist & Collection State
     const [playlists, setPlaylists] = useState<Playlist[]>([]);
-    const [showPlaylistModal, setShowPlaylistModal] = useState(false);
     const [newPlaylistName, setNewPlaylistName] = useState('');
 
     const [selectedCollection, setSelectedCollection] = useState<{ type: 'PLAYLIST' | 'ALBUM' | 'ARTIST', id: string, title: string } | null>(null);
@@ -107,6 +119,30 @@ const AppContent = () => {
         [GestureType.PINCH]: GestureAction.ZOOM,
         [GestureType.CIRCLE]: GestureAction.VOLUME
     });
+
+    // --- METADATA EDITOR ---
+    const [showMetadataModal, setShowMetadataModal] = useState(false);
+
+    // AUTO-FETCH COVER ART
+    useEffect(() => {
+        if (!currentTrack || !isOnline) return;
+
+        // Check if cover is missing or placeholder
+        const isPlaceholder = !currentTrack.coverUrl || currentTrack.coverUrl.includes('picsum') || currentTrack.coverUrl.includes('ui-avatars') || currentTrack.coverUrl === '/placeholder.png';
+
+        if (isPlaceholder && currentTrack.artist && currentTrack.title && currentTrack.type === MediaType.MUSIC) {
+            fetchCoverArt(currentTrack.artist, currentTrack.title, currentTrack.album).then(url => {
+                if (url) {
+                    const updated = { ...currentTrack, coverUrl: url };
+                    setCurrentTrack(updated);
+                    setLocalLibrary(prev => prev.map(m => m.id === currentTrack.id ? updated : m));
+                    updateMediaItem(updated);
+                }
+            });
+        }
+    }, [currentTrack?.id, isOnline]);
+
+    const [trackToEdit, setTrackToEdit] = useState<MediaItem | null>(null);
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -265,6 +301,38 @@ const AppContent = () => {
 
     // Network Status Listeners
     useEffect(() => {
+        // Party Session Listener
+        const unsubscribeParty = partySession.onStateChange((state) => {
+            setPartyState(state);
+            if (state.roomId) {
+                showToast(state.isHost ? `Hosting Party: ${state.roomId}` : `Joined Party: ${state.roomId}`, "success");
+            } else {
+                showToast("Left Party", "info");
+            }
+        });
+
+        // Deep Link Listener for Party Join
+        CapacitorApp.addListener('appUrlOpen', data => {
+            const url = data.url;
+            // Example formats:
+            // mtc-player://party/ROOM_ID
+            // https://mtc-player.com/party/ROOM_ID
+            if (url.includes('/party/')) {
+                const parts = url.split('/party/');
+                if (parts.length > 1) {
+                    const roomId = parts[1].split('/')[0].split('?')[0]; // simple cleaning
+                    if (roomId) {
+                        setPendingPartyId(roomId);
+                        setShowPartyModal(true);
+                        showToast(`Found Party Invitation: ${roomId}`, 'info');
+                    }
+                }
+            }
+        });
+
+        // Offline / Online listener
+
+        // Offline / Online listener
         const handleOnline = () => {
             setIsOnline(true);
             showToast("Connected to Cloud Services", "success");
@@ -492,6 +560,18 @@ const AppContent = () => {
 
     const handleNext = useCallback((autoTrigger = false) => {
         if (!currentTrack) return;
+
+        // TRACK STATS IF AUTO TRIGGERED (FINISHED)
+        if (autoTrigger) {
+            incrementPlayCount(currentTrack.id, Date.now()).then(updated => {
+                if (updated) {
+                    setAllMedia(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
+                    // Also update localLibrary if it's there
+                    setLocalLibrary(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
+                }
+            });
+        }
+
         if (autoTrigger && repeatMode === RepeatMode.ONE) {
             if (currentTrack.type === MediaType.VIDEO) {
                 playTrack(currentTrack);
@@ -622,6 +702,12 @@ const AppContent = () => {
         }
     };
 
+
+
+
+
+
+
     const toggleShuffle = () => {
         setShuffleOn(prev => {
             const newVal = !prev;
@@ -654,6 +740,112 @@ const AppContent = () => {
         const randomIdx = Math.floor(Math.random() * allMedia.length);
         playTrack(allMedia[randomIdx]);
         showToast("Shuffling all tracks...");
+    };
+
+    // --- AI VOICE CONTROL ---
+    const [isVoiceProcessing, setIsVoiceProcessing] = useState(false);
+
+    const handleVoiceCommand = async (transcript: string) => {
+        setIsVoiceProcessing(true);
+        // Combine all available tracks for context (local + loaded playlists)
+        const allMedia = [...localLibrary, ...playlists.flatMap(p => p.items)];
+
+        const command = await processVoiceCommand(transcript, allMedia);
+        showToast(command.feedback, "info");
+
+        if (command.action === 'PLAY') {
+            if (command.params?.song || command.params?.artist) {
+                // simple search match
+                const term = (command.params.song || command.params.artist || "").toLowerCase();
+                const match = allMedia.find(m =>
+                    m.title.toLowerCase().includes(term) ||
+                    m.artist.toLowerCase().includes(term)
+                );
+                if (match) {
+                    setCurrentTrack(match);
+                    setIsPlaying(true);
+                    setCurrentView(AppView.PLAYER);
+                } else {
+                    showToast("Couldn't find that track.", "error");
+                }
+            } else {
+                setIsPlaying(true); // Resume
+            }
+        } else if (command.action === 'PAUSE') {
+            setIsPlaying(false);
+        } else if (command.action === 'NEXT') {
+            handleNext(false);
+        } else if (command.action === 'PREV') {
+            handlePrev();
+        } else if (command.action === 'SHUFFLE') {
+            toggleShuffle();
+        }
+
+        setIsVoiceProcessing(false);
+    };
+
+
+    // SMART EQ LOGIC
+    useEffect(() => {
+        if (!eqSettings.auto || !currentTrack) return;
+
+        const tags = [...(currentTrack.tags || []), ...(currentTrack.moods || [])].map(t => t.toLowerCase());
+        const combined = tags.join(' ');
+
+        let newGains = { ...eqSettings.gains }; // Default flat start? Or keep current
+        let preset: PresetName = 'Flat';
+
+        if (combined.includes('rock') || combined.includes('metal') || combined.includes('dance') || combined.includes('techno') || combined.includes('hip hop')) {
+            // Bass Boost
+            preset = 'Bass Boost';
+            newGains = { 60: 8, 250: 5, 1000: 0, 4000: 0, 16000: 2 };
+        } else if (combined.includes('pop') || combined.includes('acoustic') || combined.includes('folk')) {
+            // Vocal
+            preset = 'Vocal';
+            newGains = { 60: -2, 250: 2, 1000: 5, 4000: 3, 16000: 1 };
+        } else if (combined.includes('classical') || combined.includes('jazz')) {
+            // Treble
+            preset = 'Treble';
+            newGains = { 60: -2, 250: 0, 1000: 2, 4000: 6, 16000: 8 };
+        } else {
+            // Default Flat
+            preset = 'Flat';
+            newGains = { 60: 0, 250: 0, 1000: 0, 4000: 0, 16000: 0 };
+        }
+
+        // Only update if changed prevents loop
+        if (eqSettings.preset !== preset) {
+            setEqSettings({ ...eqSettings, preset, gains: newGains });
+            showToast(`Smart EQ: Applied ${preset} for ${currentTrack.artist}`, "success");
+        }
+
+    }, [currentTrack, eqSettings.auto]);
+
+    const handleEditMetadata = (track: MediaItem) => {
+        setTrackToEdit(track);
+        setShowMetadataModal(true);
+    };
+
+    const handleSaveMetadata = async (id: string, updates: Partial<MediaItem>) => {
+        try {
+            // Update DB
+            await updateMediaItem(id, updates);
+
+            // Update Local State (optimistic UI)
+            setLocalLibrary(prev => prev.map(item =>
+                item.id === id ? { ...item, ...updates } : item
+            ));
+
+            // If currently playing, update that too
+            if (currentTrack && currentTrack.id === id) {
+                setCurrentTrack(prev => prev ? { ...prev, ...updates } : null);
+            }
+
+            showToast("Metadata updated successfully!", "success");
+        } catch (e) {
+            console.error(e);
+            showToast("Failed to save changes", "error");
+        }
     };
 
     // Modern Playlist Creation using Modal
@@ -988,13 +1180,22 @@ const AppContent = () => {
                                 setLibraryTab('HISTORY');
                                 setCurrentView(AppView.LIBRARY);
                             }}
+                            onCreatePlaylist={openCreatePlaylistModal}
+                            onOpenStats={() => setCurrentView(AppView.STATS)}
+                            onStartParty={() => setShowPartyModal(true)}
+                            onVoiceCommand={handleVoiceCommand}
+                            isVoiceProcessing={isVoiceProcessing}
                         />
                     )}
                     {/* Using the component extraction logic, we assume we have a LibraryView now */}
-                    {currentView === AppView.LIBRARY && renderLibrary()}
+                    {currentView === AppView.LIBRARY && renderLibrary({ onEditMetadata: handleEditMetadata })}
+
 
                     {currentView === AppView.AI_CHAT && (
                         <AIChatView currentTrack={currentTrack} />
+                    )}
+                    {currentView === AppView.RADIO && (
+                        <RadioView onPlay={playTrack} currentTrack={currentTrack} isPlaying={isPlaying} />
                     )}
                     {currentView === AppView.SETTINGS && (
                         <SettingsView
@@ -1006,6 +1207,9 @@ const AppContent = () => {
                             onLogout={handleLogout}
                             onShowSupport={() => setShowSupportModal(true)}
                         />
+                    )}
+                    {currentView === AppView.STATS && (
+                        <StatsView allMedia={allMedia} onClose={() => setCurrentView(AppView.HOME)} />
                     )}
                 </main>
 
@@ -1050,11 +1254,30 @@ const AppContent = () => {
                         onUpdateEq={setEqSettings}
                         sleepTimerActive={sleepTimer.active}
                         onSetSleepTimer={setTimer}
+                        partyState={partyState}
                     />
                 )}
             </div>
             {/* Modals */}
-            {showPlaylistModal && <CreatePlaylistModal onClose={() => setShowPlaylistModal(false)} onCreate={handleCreatePlaylist} />}
+            {showPartyModal && (
+                <PartyModeModal
+                    isOpen={showPartyModal}
+                    onClose={() => { setShowPartyModal(false); setPendingPartyId(undefined); }}
+                    userName={userName}
+                    onSessionStart={() => setCurrentView(AppView.PLAYER)}
+                    initialRoomId={pendingPartyId}
+                />
+            )}
+            {showPlaylistModal && (
+                <CreatePlaylistModal
+                    isOpen={showPlaylistModal}
+                    onClose={() => setShowPlaylistModal(false)}
+                    newPlaylistName={newPlaylistName}
+                    setNewPlaylistName={setNewPlaylistName}
+                    handleCreatePlaylist={handleCreatePlaylist}
+                />
+            )}
+
             {showSupportModal && <SupportModal onClose={() => setShowSupportModal(false)} />}
 
         </div>

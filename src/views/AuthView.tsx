@@ -66,10 +66,10 @@ export const AuthView = ({ onLogin }: AuthViewProps) => {
 
             <div className="w-full max-w-md bg-app-card/50 backdrop-blur-xl border border-app-border rounded-2xl shadow-2xl p-8 relative z-10 animate-slide-up">
                 <div className="text-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-br from-brand-dark to-black rounded-2xl mx-auto flex items-center justify-center border border-white/10 shadow-lg mb-4">
-                        <Icons.Disc className="w-8 h-8 text-brand-accent animate-[spin_10s_linear_infinite]" />
+                    <div className="w-16 h-16 bg-gradient-to-br from-teal-400 to-teal-600 rounded-2xl mx-auto flex items-center justify-center border border-teal-500/20 shadow-lg shadow-teal-500/20 mb-4">
+                        <Icons.Disc className="w-8 h-8 text-white animate-[spin_10s_linear_infinite]" />
                     </div>
-                    <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-brand-light tracking-tighter">MTc Player</h1>
+                    <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-app-text to-brand-accent tracking-tighter">MTc Player</h1>
                     <p className="text-app-subtext text-sm mt-2">Sonic Intelligence</p>
                 </div>
 
