@@ -74,14 +74,56 @@ export const SKINS: Skin[] = [
         id: 'orange',
         name: 'Neon Orange',
         colors: {
-            bgApp: '#0c0a09', // Stone 950
-            bgCard: '#1c1917', // Stone 900
-            bgSurface: '#292524', // Stone 800
+            bgApp: '#1a1005', // Deep rich brown-black
+            bgCard: '#2c1810', // Darker earthy tone
+            bgSurface: '#431407', // Rich rust
+            textMain: '#fff7ed', // Warm white
+            textSub: '#fdba74', // Soft orange
+            border: '#c2410c', // Dark orange border
+            accent: '#f97316', // Vibrant Orange
+            secondary: '#ea580c' // Deep Orange
+        }
+    },
+    {
+        id: 'forest',
+        name: 'Mystic Forest',
+        colors: {
+            bgApp: '#022c22', // Deep green
+            bgCard: '#064e3b',
+            bgSurface: '#065f46',
+            textMain: '#ecfdf5',
+            textSub: '#6ee7b7',
+            border: '#047857',
+            accent: '#10b981', // Emerald
+            secondary: '#34d399'
+        }
+    },
+    {
+        id: 'dracula',
+        name: 'Midnight Vampire',
+        colors: {
+            bgApp: '#0f0c29', // Dark Purple-Blue
+            bgCard: '#1b1b3a',
+            bgSurface: '#24244d',
+            textMain: '#e0e0f5',
+            textSub: '#9ca3af',
+            border: '#4c1d95',
+            accent: '#d946ef', // Fuchsia
+            secondary: '#8b5cf6' // Violet
+        }
+    },
+    {
+        id: 'gold',
+        name: 'Luxury Gold',
+        colors: {
+            bgApp: '#000000', // Pure Black
+            bgCard: '#111111',
+            bgSurface: '#1c1917',
             textMain: '#fafaf9',
-            textSub: '#a8a29e', // Stone 400
-            border: '#44403c', // Stone 700
-            accent: '#f97316', // Orange 500
-            secondary: '#eab308' // Yellow 500
+            textSub: '#a8a29e',
+            border: '#ca8a04', // Gold border
+            accent: '#eab308', // Gold
+            secondary: '#facc15' // Yellow Gold
         }
     }
 ];

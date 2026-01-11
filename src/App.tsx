@@ -850,6 +850,10 @@ const AppContent = () => {
 
     // Modern Playlist Creation using Modal
     const openCreatePlaylistModal = () => {
+        if (!isOnline) {
+            showToast("Offline: Cannot create playlists.", "error");
+            return;
+        }
         if (isGuest) {
             showToast("Playlist creation is not available in Guest mode.", "error");
             return;
@@ -859,6 +863,7 @@ const AppContent = () => {
     };
 
     const handleCreatePlaylist = () => {
+        if (!isOnline) return showToast("Offline: Cannot save playlists.", "error");
         if (isGuest) return;
 
         if (!newPlaylistName.trim()) {
@@ -886,6 +891,10 @@ const AppContent = () => {
     };
 
     const addToPlaylist = (playlistId: string, trackId: string) => {
+        if (!isOnline) {
+            showToast("Offline: Cannot modify playlists.", "error");
+            return;
+        }
         let added = false;
         setPlaylists(prev => prev.map(p => {
             if (p.id === playlistId) {
@@ -1255,6 +1264,7 @@ const AppContent = () => {
                         sleepTimerActive={sleepTimer.active}
                         onSetSleepTimer={setTimer}
                         partyState={partyState}
+                        accentColor={SKINS.find(s => s.id === theme)?.colors.accent}
                     />
                 )}
             </div>

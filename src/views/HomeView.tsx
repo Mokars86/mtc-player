@@ -31,6 +31,20 @@ const HomeView: React.FC<HomeViewProps> = ({
   const [aiSuggestions, setAiSuggestions] = useState<any[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [greeting, setGreeting] = useState('');
+
+  React.useEffect(() => {
+    const updateGreeting = () => {
+      const hour = new Date().getHours();
+      if (hour >= 5 && hour < 12) setGreeting("Good Morning");
+      else if (hour >= 12 && hour < 17) setGreeting("Good Afternoon");
+      else if (hour >= 17 && hour < 22) setGreeting("Good Evening");
+      else setGreeting("Good Night");
+    };
+    updateGreeting();
+    const interval = setInterval(updateGreeting, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const handleMoodSelect = async (mood: string) => {
     if (!isOnline) return;
@@ -57,7 +71,7 @@ const HomeView: React.FC<HomeViewProps> = ({
           <div className="flex justify-between items-start w-full md:block">
             <div>
               <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white to-brand-light tracking-tighter">
-                Good Evening
+                {greeting}
               </h1>
               <p className="text-brand-light font-medium mt-1 text-lg">{userName.split(' ')[0]}</p>
             </div>

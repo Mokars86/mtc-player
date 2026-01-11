@@ -7,7 +7,7 @@ import {
   Wand2, MessageSquare, PlusCircle, Music, Activity,
   Sun, Moon, Sliders, Timer, Trash2, ListPlus, FolderPlus, MoreVertical, X,
   Gauge, Languages, Disc, Users, Info, Mail, Lock, Loader, User, LogOut, Check, Coffee, History, Sparkles, Mic, Edit,
-  BarChart2, TrendingUp, Clock, Globe, Radio
+  BarChart2, TrendingUp, Clock, Globe, Radio, Share2, ChevronDown
 } from 'lucide-react';
 
 export const Icons = {
@@ -17,7 +17,7 @@ export const Icons = {
   Wand2, MessageSquare, PlusCircle, Music, Activity,
   Sun, Moon, Sliders, Timer, Trash2, ListPlus, FolderPlus, MoreVertical, X,
   Gauge, Languages, Disc, Users, Info, Mail, Lock, Loader, User, LogOut, Check, Coffee, History, Sparkles, Mic, Edit,
-  BarChart2, TrendingUp, Clock, Globe, Radio
+  BarChart2, TrendingUp, Clock, Globe, Radio, Share2, ChevronDown
 };
 
 export type IconName = keyof typeof Icons;

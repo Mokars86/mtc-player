@@ -58,7 +58,7 @@ export interface PlayQueue {
   currentIndex: number;
 }
 
-export type Theme = 'cyberpunk' | 'ocean' | 'sunset' | 'light';
+export type Theme = 'cyberpunk' | 'ocean' | 'sunset' | 'light' | 'orange' | 'forest' | 'dracula' | 'gold';
 
 export enum RepeatMode {
   OFF = 'OFF',

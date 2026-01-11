@@ -7,6 +7,7 @@ import AudioEngine from '../components/AudioEngine';
 import { translateLyrics } from '../services/geminiService';
 import { VisualizerOverlay } from '../components/VisualizerOverlay';
 import { fetchLyrics } from '../services/lyricsService';
+import { useToast } from '../components/Toast';
 
 interface PlayerViewProps {
     currentTrack: MediaItem;
@@ -33,6 +34,7 @@ interface PlayerViewProps {
     sleepTimerActive?: boolean;
     onSetSleepTimer?: (minutes: number | null) => void;
     partyState?: PartyState | null;
+    accentColor?: string;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
@@ -57,18 +59,20 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     gestureSettings,
     eqSettings = { preset: 'Flat', auto: false, gains: { 60: 0, 250: 0, 1000: 0, 4000: 0, 16000: 0 } },
     onUpdateEq,
-
     sleepTimerActive,
     onSetSleepTimer,
-    partyState
+    partyState,
+    accentColor = '#2dd4bf'
 }) => {
     const [showLyrics, setShowLyrics] = useState(false);
+    const [isMiniMode, setIsMiniMode] = useState(false);
     const [volume, setVolume] = useState(() => audioElement ? audioElement.volume : 1);
     const [isZoomed, setIsZoomed] = useState(false);
     const [showEq, setShowEq] = useState(false);
     const [showSleepMenu, setShowSleepMenu] = useState(false);
     const [showVisualizer, setShowVisualizer] = useState(false);
     const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
+    const { showToast } = useToast();
 
     // Playback Speed State
     const [playbackRate, setPlaybackRate] = useState(1);
@@ -280,10 +284,30 @@ const PlayerView: React.FC<PlayerViewProps> = ({
         setPlaybackRate(next);
     };
 
+    const handleShare = async (e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: currentTrack.title,
+                    text: `Check out "${currentTrack.title}" by ${currentTrack.artist} on MTC Player!`,
+                    url: currentTrack.mediaUrl
+                });
+            } catch (err) { }
+        } else {
+            try {
+                await navigator.clipboard.writeText(`${currentTrack.title} by ${currentTrack.artist}\n${currentTrack.mediaUrl}`);
+                showToast("Track info copied to clipboard", "success");
+            } catch (e) {
+                showToast("Failed to share", "error");
+            }
+        }
+    };
+
     const handleTranslate = async () => {
-        if (!currentTrack.lyrics && !fetchedLyrics) return; // Need source
+        if (!currentTrack.lyrics && !fetchedLyrics) return;
         if (translatedLyrics) {
-            setTranslatedLyrics(null); // Toggle off
+            setTranslatedLyrics(null);
             return;
         }
 
@@ -307,17 +331,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     // Party Mode Sync
     useEffect(() => {
         if (!partyState || !partyState.roomId) return;
-
-        // If I am hosting, I broadcast my state changes
-        // This is handled in the handlers (onPlayPause, onSeek, etc - need to be wrapped)
-        // But for now, let's just Listen if I am NOT host
-
         if (!partyState.isHost) {
             const handlePartyEvent = (event: any) => {
                 const { type, payload } = event;
                 if (type === 'play') {
                     if (audioElement && audioElement.paused) {
-                        // Attempt to sync time if significantly off
                         if (Math.abs(audioElement.currentTime - payload.currentTime) > 0.5) {
                             audioElement.currentTime = payload.currentTime;
                         }
@@ -335,341 +353,242 @@ const PlayerView: React.FC<PlayerViewProps> = ({
             };
             partySession.onEvent(handlePartyEvent);
             return () => partySession.offEvent(handlePartyEvent);
-        } else {
-            // I am Host. I should broadcast periodic sync? 
-            // Or rely on my actions triggering broadcasts (which we need to wrap next)
         }
     }, [partyState, audioElement]);
 
-    // Enhanced Handlers that Broadcast
-    const handlePlayPause = () => {
+    const handlePlayPauseProxy = () => {
         onPlayPause();
         if (partyState?.isHost) {
             partySession.broadcast(isPlaying ? 'pause' : 'play', { currentTime: currentTime });
         }
     };
 
-    // We need to intercept standard props to inject broadcast logic
-    // But since we can't easily wrap props without changing App.tsx passing them,
-    // We will use a useEffect to detect state changes if we want to be less intrusive,
-    // OR just wrap the specific actions we have access to here.
-    // 'onPlayPause' is a prop. We can call it, then broadcast. 
-
-    // Wait, 'isPlaying' is a prop passed down. 
-    // If we use 'onPlayPause', it toggles state in App.tsx. 
-    // Effect in App.tsx changes 'isPlaying'.
-    // We can use an effect here to detect 'isPlaying' change?
-    // BUT, that would trigger when Guest receives a sync event too... loop risk.
-
-    // Better: Wrap the UI buttons.
-
     const isVideo = currentTrack.type === MediaType.VIDEO;
 
     return (
-        <div className="fixed inset-0 z-50 flex flex-col bg-app-bg text-app-text animate-in slide-in-from-bottom duration-300"
-            onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd}
+        <div
+            className={`${isMiniMode ? 'fixed bottom-24 right-4 z-[60] w-80 bg-app-card border border-white/10 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-right duration-300' : 'fixed inset-0 z-50 flex flex-col bg-app-bg text-app-text animate-in slide-in-from-bottom duration-300'}`}
+            onTouchStart={isMiniMode ? undefined : onTouchStart}
+            onTouchMove={isMiniMode ? undefined : onTouchMove}
+            onTouchEnd={isMiniMode ? undefined : onTouchEnd}
         >
-            {/* Gesture Feedback */}
-            {gestureFeedback && (
-                <div className="bg-black/70 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center animate-fade-in text-white shadow-2xl">
-                    <div className="mb-2 text-brand-accent scale-150">{gestureFeedback.icon}</div>
-                    <span className="text-xl font-bold font-mono">{gestureFeedback.value}</span>
-                </div>
-            )}
-
-
-            {/* Background Blur */}
-            {
-                !isVideo && (
-                    <div className="absolute inset-0 z-0 overflow-hidden">
-                        <img src={currentTrack.coverUrl} className="w-full h-full object-cover opacity-10 blur-3xl scale-125" alt="bg" />
-                        <div className="absolute inset-0 bg-gradient-to-b from-app-bg/80 via-app-bg/95 to-app-bg" />
-                    </div>
-                )
-            }
-
-            {/* Visualizer Overlay */}
-            {showVisualizer && analyser && (
-                <VisualizerOverlay analyser={analyser} onClose={() => setShowVisualizer(false)} />
-            )}
-
-            {/* EQ Modal */}
-            {
-                showEq && (
-                    <div className="absolute inset-0 z-[70] bg-black/60 backdrop-blur-md flex items-end md:items-center justify-center p-4 animate-fade-in" onClick={() => setShowEq(false)}>
-                        <div className="bg-app-card border border-app-border rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-lg font-bold text-app-text flex items-center gap-2"><Icons.Sliders className="w-5 h-5" /> Equalizer</h2>
-                                <button onClick={() => setShowEq(false)} className="p-1 hover:bg-app-bg rounded-full text-app-subtext"><Icons.Minimize2 /></button>
-                            </div>
-
-                            {/* Presets */}
-                            <div className="flex gap-2 overflow-x-auto pb-4 mb-4 hide-scrollbar">
-                                <button
-                                    onClick={() => onUpdateEq && onUpdateEq({ ...eqSettings, auto: !eqSettings.auto, preset: 'Custom' })}
-                                    className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border flex items-center gap-1 ${eqSettings.auto ? 'bg-purple-500 text-white border-purple-500' : 'bg-app-bg text-app-subtext border-app-border hover:text-app-text'}`}
-                                >
-                                    <Icons.Sparkles className="w-3 h-3" /> Auto
-                                </button>
-                                {(['Flat', 'Bass Boost', 'Vocal', 'Treble'] as PresetName[]).map(p => (
-                                    <button
-                                        key={p}
-                                        onClick={() => applyPreset(p)}
-                                        disabled={eqSettings.auto}
-                                        className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition-colors border ${eqSettings.preset === p && !eqSettings.auto ? 'bg-brand-accent text-white border-brand-accent' : 'bg-app-bg text-app-subtext border-app-border hover:text-app-text disabled:opacity-50'}`}
-                                    >
-                                        {p}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Sliders */}
-                            <div className="flex justify-between h-48 px-2">
-                                {[60, 250, 1000, 4000, 16000].map(freq => (
-                                    <div key={freq} className="flex flex-col items-center gap-2 h-full">
-                                        <input
-                                            type="range" min="-12" max="12" step="1"
-                                            value={eqSettings.gains[freq as keyof typeof eqSettings.gains]}
-                                            onChange={(e) => handleEqChange(freq, Number(e.target.value))}
-                                            className="h-full w-2 bg-app-bg rounded-full appearance-none cursor-pointer accent-brand-accent vertical-slider"
-                                            style={{ writingMode: 'vertical-lr', WebkitAppearance: 'slider-vertical' }}
-                                        />
-                                        <span className="text-[10px] text-app-subtext font-mono">{freq < 1000 ? freq : freq / 1000 + 'k'}</span>
-                                    </div>
-                                ))}
-                            </div>
+            {isMiniMode ? (
+                /* MINI MODE LAYOUT */
+                <div className="flex flex-col p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                        <img src={currentTrack.coverUrl} className="w-12 h-12 rounded-lg object-cover shadow-md" />
+                        <div className="flex-1 overflow-hidden">
+                            <h3 className="text-sm font-bold text-app-text truncate">{currentTrack.title}</h3>
+                            <p className="text-xs text-app-subtext truncate">{currentTrack.artist}</p>
                         </div>
-                    </div>
-                )
-            }
-
-            {/* Sleep Timer Menu */}
-            {
-                showSleepMenu && (
-                    <div className="absolute top-20 right-6 z-[70] bg-app-card border border-app-border rounded-xl shadow-xl p-2 w-48 animate-fade-in">
-                        <div className="text-xs font-bold text-app-subtext uppercase px-3 py-2">Sleep Timer</div>
-                        {[15, 30, 60].map(m => (
-                            <button key={m} onClick={() => { onSetSleepTimer?.(m); setShowSleepMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-app-text hover:bg-app-bg rounded-lg transition-colors">
-                                {m} Minutes
-                            </button>
-                        ))}
-                        <div className="h-px bg-app-border my-1"></div>
-                        <button onClick={() => { onSetSleepTimer?.(null); setShowSleepMenu(false); }} className="w-full text-left px-3 py-2 text-sm text-red-400 hover:bg-app-bg rounded-lg transition-colors">
-                            Turn Off
+                        <button onClick={() => setIsMiniMode(false)} className="p-2 text-app-subtext hover:text-white transition-colors">
+                            <Icons.Maximize2 className="w-5 h-5" />
                         </button>
                     </div>
-                )
-            }
 
-            {/* MAIN CONTENT AREA */}
-            <div className="flex-1 flex flex-col relative overflow-hidden md:flex-row md:items-center md:justify-center md:gap-12 md:max-w-5xl md:mx-auto md:w-full md:px-8">
-                {/* Header Controls (Close, Menu) */}
-                <div className="absolute top-0 left-0 right-0 z-40 p-4 flex justify-between items-center bg-gradient-to-b from-black/60 to-transparent md:bg-none">
-                    <button onClick={onClose} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md md:hidden">
-                        <Icons.Minimize2 className="w-6 h-6" />
-                    </button>
-                    <button onClick={onClose} className="hidden md:flex p-2 rounded-full hover:bg-white/10 text-app-subtext hover:text-white transition-colors absolute top-6 right-6 z-50">
-                        <Icons.Minimize2 className="w-6 h-6" />
-                    </button>
-
-                    <div className="flex gap-4 md:absolute md:top-6 md:left-6 md:flex-row-reverse">
-                        {/* Speed Toggle (Audio Mode) */}
-                        {!isVideo && (
-                            <button onClick={cyclePlaybackRate} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md flex items-center gap-1">
-                                <Icons.Gauge className="w-5 h-5" />
-                                <span className="text-xs font-bold w-6">{playbackRate}x</span>
-                            </button>
-                        )}
-                        <button onClick={() => setShowSleepMenu(!showSleepMenu)} className={`p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md ${sleepTimerActive ? 'text-brand-accent' : 'text-white'}`}>
-                            <Icons.Timer className="w-6 h-6" />
+                    <div className="flex justify-between items-center mb-2">
+                        <button onClick={onPrev} className="p-2 text-app-subtext hover:text-white"><Icons.SkipBack className="w-5 h-5 fill-current" /></button>
+                        <button onClick={onPlayPause} className="w-10 h-10 rounded-full bg-brand-accent text-white flex items-center justify-center shadow-lg hover:scale-105 transition-all">
+                            {isPlaying ? <Icons.Pause className="w-5 h-5 fill-current" /> : <Icons.Play className="w-5 h-5 fill-current ml-1" />}
                         </button>
-                        <button onClick={() => setShowEq(!showEq)} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md">
-                            <Icons.Sliders className="w-6 h-6" />
-                        </button>
-                        {!isVideo && (
-                            <button onClick={() => setShowVisualizer(true)} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md animate-pulse">
-                                <Icons.Activity className="w-6 h-6" />
-                            </button>
-                        )}
+                        <button onClick={onNext} className="p-2 text-app-subtext hover:text-white"><Icons.SkipForward className="w-5 h-5 fill-current" /></button>
                     </div>
-                </div>
 
-                {isVideo ? (
-                    /* VIDEO LAYOUT */
-                    <div className="flex-1 flex items-center justify-center bg-black relative group w-full h-full md:h-auto md:aspect-video md:rounded-2xl md:overflow-hidden md:shadow-2xl" onMouseMove={handleVideoMouseMove} onClick={handleVideoMouseMove}>
-                        <video
-                            ref={videoRef}
-                            src={currentTrack.mediaUrl}
-                            className="w-full h-full object-contain"
-                            playsInline
-                            loop={repeatMode === RepeatMode.ONE}
+                    <div className="flex items-center gap-2">
+                        <Icons.Volume2 className="w-4 h-4 text-app-subtext" />
+                        <input
+                            type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange}
+                            className="flex-1 h-1 bg-app-border rounded-full accent-brand-accent"
                         />
+                    </div>
+                </div>
+            ) : (
+                /* FULL MODE LAYOUT */
+                <>
+                    {showVisualizer && analyser && (
+                        <VisualizerOverlay analyser={analyser} onClose={() => setShowVisualizer(false)} />
+                    )}
 
-                        {/* Video Overlay Controls */}
-                        <div className={`absolute inset-0 bg-black/40 flex flex-col justify-between transition-opacity duration-300 ${showVideoControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
-                            {/* Top bar handled by main header z-index */}
-                            <div className="flex-1 flex items-center justify-center">
-                                <button
-                                    onClick={handlePlayPause}
-                                    className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-accent/20"
-                                >
-                                    {isPlaying ? <Icons.Pause className="w-8 h-8 fill-current" /> : <Icons.Play className="w-8 h-8 fill-current ml-1" />}
-                                </button>
+                    {gestureFeedback && (
+                        <div className="absolute inset-0 z-[70] pointer-events-none flex items-center justify-center">
+                            <div className="bg-black/70 backdrop-blur-md rounded-2xl p-6 flex flex-col items-center animate-fade-in text-white shadow-2xl">
+                                <div className="mb-2 text-brand-accent scale-150">{gestureFeedback.icon}</div>
+                                <span className="text-xl font-bold font-mono">{gestureFeedback.value}</span>
                             </div>
+                        </div>
+                    )}
 
-                            {/* Video Bottom Bar */}
-                            <div className="p-4 bg-gradient-to-t from-black/80 to-transparent space-y-2" onClick={e => e.stopPropagation()}>
-                                <input
-                                    type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange}
-                                    className="w-full h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-brand-accent hover:h-2 transition-all"
-                                />
-                                <div className="flex flex-col items-center">
-                                    <div className="w-12 h-1 bg-white/20 rounded-full mb-6" />
+                    {/* Header Controls */}
+                    <div className="flex justify-between items-center p-4 md:p-8 z-50">
+                        <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-app-text transition-colors">
+                            <Icons.ChevronDown className="w-6 h-6" />
+                        </button>
+                        <div className="flex gap-4 md:absolute md:top-6 md:left-6 md:flex-row-reverse">
+                            {!isVideo && (
+                                <button onClick={cyclePlaybackRate} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md flex items-center gap-1">
+                                    <Icons.Gauge className="w-5 h-5" />
+                                    <span className="text-xs font-bold w-6">{playbackRate}x</span>
+                                </button>
+                            )}
+                            {!isVideo && (
+                                <button onClick={() => setShowVisualizer(true)} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md animate-pulse">
+                                    <Icons.Activity className="w-6 h-6" />
+                                </button>
+                            )}
+                            <button onClick={() => setShowSleepMenu(!showSleepMenu)} className={`p-2 rounded-full bg-black/20 hover:bg-black/40 backdrop-blur-md ${sleepTimerActive ? 'text-brand-accent' : 'text-white'}`}>
+                                <Icons.Timer className="w-6 h-6" />
+                            </button>
+                            <button onClick={() => setShowEq(!showEq)} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md">
+                                <Icons.Sliders className="w-6 h-6" />
+                            </button>
+                        </div>
+                    </div>
 
-                                    {partyState && partyState.roomId && (
-                                        <div className="mb-4 px-3 py-1 bg-brand-accent/20 border border-brand-accent/50 rounded-full flex items-center gap-2 animate-pulse">
-                                            <Icons.Radio className="w-3 h-3 text-brand-accent" />
-                                            <span className="text-xs font-bold text-brand-light uppercase tracking-wider">
-                                                {partyState.isHost ? 'Hosting Party' : 'Live Party'} • {partyState.userCount} Listening
-                                            </span>
-                                        </div>
-                                    )}
+                    {isVideo ? (
+                        /* VIDEO LAYOUT */
+                        <div className="flex-1 flex items-center justify-center bg-black relative group w-full h-full md:h-auto md:aspect-video md:rounded-2xl md:overflow-hidden md:shadow-2xl" onMouseMove={handleVideoMouseMove} onClick={handleVideoMouseMove}>
+                            <video
+                                ref={videoRef}
+                                src={currentTrack.mediaUrl}
+                                className="w-full h-full object-contain"
+                                playsInline
+                                loop={repeatMode === RepeatMode.ONE}
+                            />
+                            {/* Video Overlay Controls */}
+                            <div className={`absolute inset-0 bg-black/40 flex flex-col justify-between transition-opacity duration-300 ${showVideoControls || !isPlaying ? 'opacity-100' : 'opacity-0'}`}>
+                                <div className="flex-1 flex items-center justify-center">
+                                    <button onClick={handlePlayPauseProxy} className="w-16 h-16 bg-white text-black rounded-full flex items-center justify-center hover:scale-105 active:scale-95 transition-all shadow-xl shadow-brand-accent/20">
+                                        {isPlaying ? <Icons.Pause className="w-8 h-8 fill-current" /> : <Icons.Play className="w-8 h-8 fill-current ml-1" />}
+                                    </button>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <div className="flex items-center gap-4 text-white">
+                                <div className="p-4 bg-gradient-to-t from-black/80 to-transparent space-y-2" onClick={e => e.stopPropagation()}>
+                                    <input type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange} className="w-full h-1 bg-white/30 rounded-full appearance-none cursor-pointer accent-brand-accent hover:h-2 transition-all" />
+                                    <div className="flex justify-between items-center text-white">
                                         <span className="text-xs font-mono">{formatTime(currentTime)} / {formatTime(duration)}</span>
-                                        <button onClick={requestPictureInPicture}><Icons.Maximize2 className="w-5 h-5 hover:text-brand-accent" /></button>
-                                        <button onClick={cyclePlaybackRate} className="text-xs font-bold border border-white/30 px-2 py-1 rounded hover:bg-white/10">{playbackRate}x</button>
-                                    </div>
-                                    <div className="flex items-center gap-4">
-                                        <button onClick={onToggleFavorite}><Icons.Heart className={`w-6 h-6 ${isFavorite ? 'fill-brand-accent text-brand-accent' : 'text-white'}`} /></button>
-                                        <button onClick={onNext}><Icons.SkipForward className="w-6 h-6 text-white" /></button>
+                                        <div className="flex items-center gap-4">
+                                            <button onClick={onToggleFavorite}><Icons.Heart className={`w-6 h-6 ${isFavorite ? 'fill-brand-accent text-brand-accent' : 'text-white'}`} /></button>
+                                            <button onClick={requestPictureInPicture}><Icons.Maximize2 className="w-5 h-5 hover:text-brand-accent" /></button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                ) : (
-                    /* AUDIO LAYOUT */
-                    <>
-                        {/* Left Side: Artwork/Visualizer */}
-                        {/* Mobile: P-4, min-h-0 to allow shrinking. Desktop: P-0, auto height. */}
-                        <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0 relative w-full md:w-1/2 md:max-w-none md:p-0 md:min-h-auto">
-                            <div className={`relative w-full max-w-[85vw] aspect-square ${showLyrics ? 'rounded-2xl' : 'rounded-full'} overflow-hidden shadow-2xl transition-all duration-500 ${isZoomed ? 'scale-110 z-20' : ''} ${isPlaying && !showLyrics ? 'animate-spin-slow' : ''}`} onClick={() => setIsZoomed(!isZoomed)}>
-                                {showLyrics ? (
-                                    <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col p-6 overflow-y-auto text-center scroll-smooth no-scrollbar">
-                                        <div className="flex justify-between items-center mb-4 sticky top-0">
-                                            <span className="text-xs font-bold text-brand-accent uppercase tracking-wider">Lyrics</span>
-                                            <button onClick={(e) => { e.stopPropagation(); handleTranslate(); }} disabled={isTranslating} className="text-xs flex items-center gap-1 bg-white/10 px-2 py-1 rounded hover:bg-white/20 text-white">
-                                                <Icons.Languages className="w-3 h-3" />
-                                                {isTranslating ? 'Translating...' : translatedLyrics ? 'Original' : 'Translate'}
-                                            </button>
-                                        </div>
-                                        {isTranslating ? (
-                                            <div className="flex-1 flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-brand-accent border-t-transparent rounded-full"></div></div>
-                                        ) : translatedLyrics ? (
-                                            <p className="text-lg text-white leading-relaxed whitespace-pre-line font-medium">{translatedLyrics}</p>
-                                        ) : (
-                                            currentTrack.lyrics ? (
-                                                <div className="space-y-6 py-4">
-                                                    {currentTrack.lyrics.map((line, i) => (
-                                                        <p key={i}
-                                                            className={`transition-all duration-300 cursor-pointer hover:text-brand-light ${Math.abs(currentTime - line.time) < 5 ? 'text-brand-accent scale-110 font-bold' : 'text-white/60 text-sm'}`}
-                                                            onClick={(e) => { e.stopPropagation(); onSeek(line.time); }}
-                                                        >
-                                                            {line.text}
-                                                        </p>
-                                                    ))}
-                                                </div>
-                                            ) : fetchedLyrics ? (
-                                                <p className="text-white/80 leading-relaxed whitespace-pre-line font-medium text-sm py-4">{fetchedLyrics}</p>
-                                            ) : <div className="flex flex-col items-center justify-center h-48 space-y-4">
-                                                <Icons.Music className="w-12 h-12 text-white/20" />
-                                                <p className="text-white/50">No lyrics found.</p>
+                    ) : (
+                        /* AUDIO LAYOUT */
+                        <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+                            {/* Left Side: Artwork/Visualizer */}
+                            <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0 relative w-full md:w-1/2 md:max-w-none md:p-0 md:min-h-auto">
+                                <div className={`relative aspect-square w-[min(85vw,55vh)] md:w-[min(45vw,70vh)] ${showLyrics ? 'rounded-2xl' : 'rounded-full'} overflow-hidden shadow-2xl transition-all duration-500 ${isZoomed ? 'scale-110 z-20' : ''} ${isPlaying && !showLyrics ? 'animate-spin-slow' : ''}`} onClick={() => setIsZoomed(!isZoomed)}>
+                                    {(showLyrics ? (
+                                        <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col p-6 overflow-y-auto text-center scroll-smooth no-scrollbar">
+                                            <div className="flex justify-between items-center mb-4 sticky top-0">
+                                                <span className="text-xs font-bold text-brand-accent uppercase tracking-wider">Lyrics</span>
+                                                <button onClick={(e) => { e.stopPropagation(); handleTranslate(); }} disabled={isTranslating} className="text-xs flex items-center gap-1 bg-white/10 px-2 py-1 rounded hover:bg-white/20 text-white">
+                                                    <Icons.Languages className="w-3 h-3" />
+                                                    {isTranslating ? 'Translating...' : translatedLyrics ? 'Original' : 'Translate'}
+                                                </button>
                                             </div>
-                                        )}
-                                    </div>
-                                ) : (
-                                    <>
-                                        <img src={currentTrack.coverUrl} className="w-full h-full object-cover" />
-                                        {/* Vinyl Center Hole */}
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="w-4 h-4 bg-[#1a1a1a] rounded-full border border-[#27272a] shadow-inner z-10"></div>
-                                            {/* Optional: Inner Label Ring */}
-                                            <div className="absolute w-24 h-24 rounded-full border-[20px] border-black/10"></div>
+                                            {isTranslating ? (
+                                                <div className="flex-1 flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-brand-accent border-t-transparent rounded-full"></div></div>
+                                            ) : translatedLyrics ? (
+                                                <p className="text-lg text-white leading-relaxed whitespace-pre-line font-medium">{translatedLyrics}</p>
+                                            ) : (
+                                                currentTrack.lyrics ? (
+                                                    <div className="space-y-6 py-4">
+                                                        {currentTrack.lyrics.map((line, i) => (
+                                                            <p key={i} className={`transition-all duration-300 cursor-pointer hover:text-brand-light ${Math.abs(currentTime - line.time) < 5 ? 'text-brand-accent scale-110 font-bold' : 'text-white/60 text-sm'}`} onClick={(e) => { e.stopPropagation(); onSeek(line.time); }}>
+                                                                {line.text}
+                                                            </p>
+                                                        ))}
+                                                    </div>
+                                                ) : fetchedLyrics ? (
+                                                    <p className="text-white/80 leading-relaxed whitespace-pre-line font-medium text-sm py-4">{fetchedLyrics}</p>
+                                                ) : <div className="flex flex-col items-center justify-center h-48 space-y-4">
+                                                    <Icons.Music className="w-12 h-12 text-white/20" />
+                                                    <p className="text-white/50">No lyrics found.</p>
+                                                </div>
+                                            )}
                                         </div>
-                                        {/* Audio Engine (Visualizer) Overlay */}
-                                        <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0">
-                                            <div className="w-full h-full opacity-80">
+                                    ) : (
+                                        <>
+                                            <img src={currentTrack.coverUrl} className="w-full h-full object-cover" />
+                                            {/* Vinyl Center Hole */}
+                                            <div className="absolute inset-0 flex items-center justify-center">
+                                                <div className="w-16 h-16 md:w-20 md:h-20 bg-[#1a1a1a] rounded-full border-4 border-[#27272a] shadow-inner z-10 flex items-center justify-center">
+                                                    <div className="w-4 h-4 bg-black rounded-full"></div>
+                                                </div>
+                                            </div>
+                                            {/* Audio Engine (Visualizer) Overlay */}
+                                            <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0">
                                                 <div className="w-full h-full opacity-80">
                                                     <AudioEngine
                                                         audioElement={audioElement}
                                                         isPlaying={isPlaying}
-                                                        color="#2dd4bf"
+                                                        color={accentColor}
                                                         eqSettings={eqSettings}
                                                         onAnalyserReady={setAnalyser}
                                                     />
                                                 </div>
                                             </div>
-                                        </div>
-                                    </>
-                                )}
+                                        </>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Right Side: Controls */}
+                            <div className="w-full flex-shrink-0 flex flex-col items-center justify-end p-4 pb-8 md:w-1/2 md:p-0 md:items-stretch md:justify-center">
+                                <div className="w-full max-w-sm md:max-w-md mb-2 flex justify-between items-center md:mb-8">
+                                    <div className="overflow-hidden">
+                                        <h2 className="text-2xl font-bold text-app-text truncate md:text-4xl">{currentTrack.title}</h2>
+                                        <p className="text-app-subtext truncate md:text-xl md:mt-1">{currentTrack.artist}</p>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <button onClick={(e) => handleShare(e)} className="p-2 transition-transform active:scale-90 text-app-subtext hover:text-app-text">
+                                            <Icons.Share2 className="w-6 h-6 md:w-7 md:h-7" />
+                                        </button>
+                                        <button onClick={() => onToggleFavorite?.()} className="p-2 transition-transform active:scale-90">
+                                            <Icons.Heart className={`w-7 h-7 md:w-8 md:h-8 ${isFavorite ? 'fill-brand-accent text-brand-accent' : 'text-app-subtext'}`} />
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="w-full max-w-sm md:max-w-md mb-6 group md:mb-10">
+                                    <input type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange} className="w-full h-1.5 bg-app-border rounded-full appearance-none cursor-pointer accent-brand-accent hover:h-2 transition-all" />
+                                    <div className="flex justify-between text-xs text-app-subtext mt-2 font-mono">
+                                        <span>{formatTime(currentTime)}</span>
+                                        <span>{formatTime(duration)}</span>
+                                    </div>
+                                </div>
+
+                                <div className="w-full max-w-sm md:max-w-md flex items-center justify-between mb-8 md:mb-12">
+                                    <button onClick={onToggleShuffle} className={`p-2 transition-colors ${shuffleOn ? 'text-brand-accent' : 'text-app-subtext'}`}><Icons.Shuffle className="w-5 h-5 md:w-6 md:h-6" /></button>
+                                    <button onClick={onPrev} className="p-2 text-app-text hover:text-brand-accent transition-colors"><Icons.SkipBack className="w-8 h-8 md:w-10 md:h-10 fill-current" /></button>
+                                    <button onClick={handlePlayPauseProxy} className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-brand-accent text-white flex items-center justify-center shadow-[0_0_20px_rgba(13,148,136,0.4)] hover:scale-105 hover:shadow-[0_0_30px_rgba(13,148,136,0.6)] transition-all">
+                                        {isPlaying ? <Icons.Pause className="w-8 h-8 md:w-10 md:h-10 fill-current" /> : <Icons.Play className="w-8 h-8 md:w-10 md:h-10 fill-current ml-1" />}
+                                    </button>
+                                    <button onClick={onNext} className="p-2 text-app-text hover:text-brand-accent transition-colors"><Icons.SkipForward className="w-8 h-8 md:w-10 md:h-10 fill-current" /></button>
+                                    <button onClick={onToggleRepeat} className={`p-2 transition-colors ${repeatMode !== RepeatMode.OFF ? 'text-brand-accent' : 'text-app-subtext'}`}>
+                                        {repeatMode === RepeatMode.ONE ? <Icons.Repeat1 className="w-5 h-5 md:w-6 md:h-6" /> : <Icons.Repeat className="w-5 h-5 md:w-6 md:h-6" />}
+                                    </button>
+                                    <button onClick={() => setIsMiniMode(true)} title="Switch to Floating Mini Player" className="hidden md:flex p-2 text-app-subtext hover:text-brand-accent transition-colors">
+                                        <Icons.Minimize2 className="w-5 h-5 md:w-6 md:h-6" />
+                                    </button>
+                                </div>
+
+                                <div className="w-full max-w-sm md:max-w-md flex items-center justify-between px-4 md:px-0">
+                                    <div className="flex items-center gap-2 group relative">
+                                        <button onClick={toggleMute} className="text-app-subtext hover:text-app-text"><Icons.Volume2 className="w-5 h-5 md:w-6 md:h-6" /></button>
+                                        <input type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange} className="w-20 h-1 bg-app-border rounded-full accent-brand-accent" />
+                                    </div>
+                                    <button onClick={() => setShowLyrics(!showLyrics)} className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${showLyrics ? 'bg-brand-accent text-white border-brand-accent' : 'border-app-border text-app-subtext hover:text-app-text'}`}>
+                                        <Icons.MessageSquare className="w-4 h-4" /> Lyrics
+                                    </button>
+                                </div>
                             </div>
                         </div>
-
-                        {/* Right Side: Controls */}
-                        {/* Mobile: P-4, justify-end to stick to bottom if space allows, or center. flex-shrink-0 to never squash controls. */}
-                        <div className="w-full flex-shrink-0 flex flex-col items-center justify-end p-4 pb-8 md:w-1/2 md:p-0 md:items-stretch md:justify-center">
-                            {/* Track Info */}
-                            <div className="w-full max-w-sm md:max-w-md mb-2 flex justify-between items-center md:mb-8">
-                                <div className="overflow-hidden">
-                                    <h2 className="text-2xl font-bold text-app-text truncate md:text-4xl">{currentTrack.title}</h2>
-                                    <p className="text-app-subtext truncate md:text-xl md:mt-1">{currentTrack.artist}</p>
-                                </div>
-                                <button onClick={() => onToggleFavorite?.()} className="p-2 transition-transform active:scale-90">
-                                    <Icons.Heart className={`w-7 h-7 md:w-8 md:h-8 ${isFavorite ? 'fill-brand-accent text-brand-accent' : 'text-app-subtext'}`} />
-                                </button>
-                            </div>
-
-                            {/* Progress */}
-                            <div className="w-full max-w-sm md:max-w-md mb-6 group md:mb-10">
-                                <input
-                                    type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange}
-                                    className="w-full h-1.5 bg-app-border rounded-full appearance-none cursor-pointer accent-brand-accent hover:h-2 transition-all"
-                                />
-                                <div className="flex justify-between text-xs text-app-subtext mt-2 font-mono">
-                                    <span>{formatTime(currentTime)}</span>
-                                    <span>{formatTime(duration)}</span>
-                                </div>
-                            </div>
-
-                            {/* Controls */}
-                            <div className="w-full max-w-sm md:max-w-md flex items-center justify-between mb-8 md:mb-12">
-                                <button onClick={onToggleShuffle} className={`p-2 transition-colors ${shuffleOn ? 'text-brand-accent' : 'text-app-subtext'}`}><Icons.Shuffle className="w-5 h-5 md:w-6 md:h-6" /></button>
-                                <button onClick={onPrev} className="p-2 text-app-text hover:text-brand-accent transition-colors"><Icons.SkipBack className="w-8 h-8 md:w-10 md:h-10 fill-current" /></button>
-                                <button onClick={onPlayPause} className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-brand-accent text-white flex items-center justify-center shadow-[0_0_20px_rgba(13,148,136,0.4)] hover:scale-105 hover:shadow-[0_0_30px_rgba(13,148,136,0.6)] transition-all">
-                                    {isPlaying ? <Icons.Pause className="w-8 h-8 md:w-10 md:h-10 fill-current" /> : <Icons.Play className="w-8 h-8 md:w-10 md:h-10 fill-current ml-1" />}
-                                </button>
-                                <button onClick={onNext} className="p-2 text-app-text hover:text-brand-accent transition-colors"><Icons.SkipForward className="w-8 h-8 md:w-10 md:h-10 fill-current" /></button>
-                                <button onClick={onToggleRepeat} className={`p-2 transition-colors ${repeatMode !== RepeatMode.OFF ? 'text-brand-accent' : 'text-app-subtext'}`}>
-                                    {repeatMode === RepeatMode.ONE ? <Icons.Repeat1 className="w-5 h-5 md:w-6 md:h-6" /> : <Icons.Repeat className="w-5 h-5 md:w-6 md:h-6" />}
-                                </button>
-                            </div>
-
-                            {/* Bottom Tools */}
-                            <div className="w-full max-w-sm md:max-w-md flex items-center justify-between px-4 md:px-0">
-                                <div className="flex items-center gap-2 group relative">
-                                    <button onClick={toggleMute} className="text-app-subtext hover:text-app-text"><Icons.Volume2 className="w-5 h-5 md:w-6 md:h-6" /></button>
-                                    <input type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange} className="w-20 h-1 bg-app-border rounded-full accent-brand-accent" />
-                                </div>
-                                <button onClick={() => setShowLyrics(!showLyrics)} className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full border transition-colors ${showLyrics ? 'bg-brand-accent text-white border-brand-accent' : 'border-app-border text-app-subtext hover:text-app-text'}`}>
-                                    <Icons.MessageSquare className="w-4 h-4" /> Lyrics
-                                </button>
-                            </div>
-                        </div>
-                    </>
-                )}
-            </div>
+                    )}
+                </>
+            )}
         </div>
     );
 };
