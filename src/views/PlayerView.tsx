@@ -35,6 +35,8 @@ interface PlayerViewProps {
     onSetSleepTimer?: (minutes: number | null) => void;
     partyState?: PartyState | null;
     accentColor?: string;
+    isMiniMode?: boolean;
+    onToggleMiniMode?: () => void;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
@@ -62,10 +64,12 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     sleepTimerActive,
     onSetSleepTimer,
     partyState,
-    accentColor = '#2dd4bf'
+    accentColor = '#2dd4bf',
+    isMiniMode = false,
+    onToggleMiniMode
 }) => {
     const [showLyrics, setShowLyrics] = useState(false);
-    const [isMiniMode, setIsMiniMode] = useState(false);
+    // const [isMiniMode, setIsMiniMode] = useState(false); // Controlled by parent now
     const [volume, setVolume] = useState(() => audioElement ? audioElement.volume : 1);
     const [isZoomed, setIsZoomed] = useState(false);
     const [showEq, setShowEq] = useState(false);
@@ -381,7 +385,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                             <h3 className="text-sm font-bold text-app-text truncate">{currentTrack.title}</h3>
                             <p className="text-xs text-app-subtext truncate">{currentTrack.artist}</p>
                         </div>
-                        <button onClick={() => setIsMiniMode(false)} className="p-2 text-app-subtext hover:text-white transition-colors">
+                        <button onClick={onToggleMiniMode} className="p-2 text-app-subtext hover:text-white transition-colors">
                             <Icons.Maximize2 className="w-5 h-5" />
                         </button>
                     </div>
@@ -570,7 +574,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                     <button onClick={onToggleRepeat} className={`p-2 transition-colors ${repeatMode !== RepeatMode.OFF ? 'text-brand-accent' : 'text-app-subtext'}`}>
                                         {repeatMode === RepeatMode.ONE ? <Icons.Repeat1 className="w-5 h-5 md:w-6 md:h-6" /> : <Icons.Repeat className="w-5 h-5 md:w-6 md:h-6" />}
                                     </button>
-                                    <button onClick={() => setIsMiniMode(true)} title="Switch to Floating Mini Player" className="hidden md:flex p-2 text-app-subtext hover:text-brand-accent transition-colors">
+                                    <button onClick={onToggleMiniMode} title="Switch to Floating Mini Player" className="hidden md:flex p-2 text-app-subtext hover:text-brand-accent transition-colors">
                                         <Icons.Minimize2 className="w-5 h-5 md:w-6 md:h-6" />
                                     </button>
                                 </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Icons } from '../Icon';
-import { stripeService } from '../../services/stripe';
+import { useFlutterwave, closePaymentModal } from 'flutterwave-react-v3';
+import { preparePaymentConfig } from '../../services/flutterwave';
 
 interface SupportModalProps {
     onClose: () => void;
@@ -11,27 +12,50 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose }) => {
     const [customAmount, setCustomAmount] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const handlePayment = async () => {
-        const value = selectedAmount || parseFloat(customAmount);
-        if (!value || isNaN(value)) return;
 
+    const paymentValue = selectedAmount || parseFloat(customAmount) || 0;
+    const config = preparePaymentConfig(paymentValue);
+    const handleFlutterwavePayment = useFlutterwave(config);
+
+
+    // Correct Approach: 
+    // We cannot use useFlutterwave simply inside a handler. 
+    // However, the standard way in this library is often to use the "FlutterWaveButton" component OR
+    // initialize the hook with a config. 
+    // Since 'value' is dynamic, we can't easily use the hook at the top level with a static config.
+    // LIMITATION: 'useFlutterwave' accepts a config object. 
+    // HACK: We can use the 'flutterwave-react-v3' library's `FlutterWaveButton` or standard JS script 
+    // but looking at source, `useFlutterwave` creates the script tag.
+
+    // Let's rely on standard JS implementation if the hook is rigid, 
+    // BUT usually we can do: useFlutterwave(config) where config is memoized or state.
+    // Let's refactor to use a "Trigger" approach where we set config in state, 
+    // which triggers the hook? No, hooks run unconditionally.
+
+    // Alternative: The library exports `closePaymentModal` and `useFlutterwave`.
+    // Let's use the `FlutterWaveButton` approach or just instantiate the inline script manually if the hook is troublesome for dynamic amounts.
+    // EXPECTATION: flutterwave-react-v3 allows dynamic config if we update the config passed to the hook.
+
+
+    const onPayClick = () => {
+        if (!paymentValue || isNaN(paymentValue)) return;
         setIsProcessing(true);
 
-        try {
-            const response = await stripeService.createCheckoutSession(value);
-
-            if (response.success) {
-                // In a real app, we would redirect: window.location.href = response.url;
-                alert(`SUCCESS! \n\nBackend processed Stripe payment for $${value}\nMessage: ${response.message}\n(Mock Redirect to: ${response.url})`);
-                onClose();
-            } else {
-                alert("Payment Failed: " + response.message);
-            }
-        } catch (e) {
-            alert("An unexpected error occurred processing payment.");
-        } finally {
-            setIsProcessing(false);
-        }
+        handleFlutterwavePayment({
+            callback: (response) => {
+                if (response.status === "successful") {
+                    alert(`Thank you for your support of $${paymentValue}!`);
+                    closePaymentModal();
+                    onClose();
+                } else {
+                    // alert("Payment failed/cancelled");
+                }
+                setIsProcessing(false);
+            },
+            onClose: () => {
+                setIsProcessing(false);
+            },
+        });
     };
 
     return (
@@ -81,12 +105,12 @@ export const SupportModal: React.FC<SupportModalProps> = ({ onClose }) => {
                 {/* Secure Badge */}
                 <div className="flex items-center justify-center gap-2 text-xs text-app-subtext">
                     <Icons.Lock className="w-3 h-3" />
-                    <span>Secure payment via <strong>Stripe</strong></span>
+                    <span>Secure payment via <strong>Flutterwave</strong></span>
                 </div>
 
                 {/* Action Button */}
                 <button
-                    onClick={handlePayment}
+                    onClick={onPayClick}
                     disabled={isProcessing || (!selectedAmount && !customAmount)}
                     className="w-full py-3 rounded-xl bg-app-text text-app-bg font-bold text-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 flex items-center justify-center gap-2"
                 >

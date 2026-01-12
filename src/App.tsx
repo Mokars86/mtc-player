@@ -43,6 +43,8 @@ const AppContent = () => {
     const [showPartyModal, setShowPartyModal] = useState(false);
     const [pendingPartyId, setPendingPartyId] = useState<string | undefined>(undefined);
     const [partyState, setPartyState] = useState<PartyState | null>(null);
+    const [isMiniPlayerMode, setIsMiniPlayerMode] = useState(false);
+    const [lastActiveView, setLastActiveView] = useState<AppView>(AppView.HOME);
 
     const [isGuest, setIsGuest] = useState(false);
     const [userName, setUserName] = useState("Guest User");
@@ -56,6 +58,14 @@ const AppContent = () => {
     const [currentTime, setCurrentTime] = useState(0);
     const [duration, setDuration] = useState(0);
     const [theme, setTheme] = useState<Theme>('light');
+
+    const restoreView = () => {
+        if (lastActiveView !== AppView.PLAYER) {
+            setCurrentView(lastActiveView);
+        } else {
+            setCurrentView(AppView.HOME);
+        }
+    };
 
     // Apply Theme/Skin
     useEffect(() => {
@@ -494,6 +504,7 @@ const AppContent = () => {
     const playTrack = useCallback(async (track: MediaItem) => {
         if (!audioRef.current) return;
         setCurrentTrack(track);
+        setIsMiniPlayerMode(false); // Reset mini mode on new track play
 
         // Add to Recently Played (Duplicate check)
         setRecentlyPlayed(prev => {
@@ -764,7 +775,9 @@ const AppContent = () => {
                 if (match) {
                     setCurrentTrack(match);
                     setIsPlaying(true);
+                    setLastActiveView(currentView === AppView.PLAYER ? AppView.HOME : currentView);
                     setCurrentView(AppView.PLAYER);
+                    setIsMiniPlayerMode(false);
                 } else {
                     showToast("Couldn't find that track.", "error");
                 }
@@ -1222,7 +1235,7 @@ const AppContent = () => {
                     )}
                 </main>
 
-                {currentTrack && currentView !== AppView.PLAYER && (
+                {currentTrack && currentView !== AppView.PLAYER && !isMiniPlayerMode && (
                     <MiniPlayer
                         currentTrack={currentTrack}
                         isPlaying={isPlaying}
@@ -1238,7 +1251,7 @@ const AppContent = () => {
 
                 <BottomNavigation currentView={currentView} setCurrentView={setCurrentView} />
 
-                {currentView === AppView.PLAYER && currentTrack && (
+                {(currentView === AppView.PLAYER || (isMiniPlayerMode && currentTrack)) && currentTrack && (
                     <PlayerView
                         currentTrack={currentTrack}
                         isPlaying={isPlaying}
@@ -1246,7 +1259,30 @@ const AppContent = () => {
                         onNext={() => handleNext(false)}
                         onPrev={handlePrev}
                         audioElement={audioRef.current}
-                        onClose={() => setCurrentView(AppView.HOME)}
+                        onClose={() => {
+                            // If hiding mini player or closing full player
+                            setIsMiniPlayerMode(false);
+                            setCurrentView(AppView.HOME); // Or just close functionality? Commonly stops playback or just minimizes? 
+                            // Usually 'Close' on player means 'Minimize' in this app context, but there is a minimize button separately?
+                            // Let's assume Close = Back to Home.
+                            setCurrentView(AppView.HOME);
+                        }}
+                        isMiniMode={isMiniPlayerMode}
+                        onToggleMiniMode={() => {
+                            if (isMiniPlayerMode) {
+                                // Maximize
+                                setIsMiniPlayerMode(false);
+                                setCurrentView(AppView.PLAYER);
+                            } else {
+                                // Minimize
+                                setLastActiveView(currentView === AppView.PLAYER ? AppView.HOME : currentView);
+                                setIsMiniPlayerMode(true);
+                                // We need to switch view away from PLAYER to show background
+                                if (currentView === AppView.PLAYER) {
+                                    setCurrentView(lastActiveView === AppView.PLAYER ? AppView.HOME : lastActiveView);
+                                }
+                            }
+                        }}
                         currentTime={currentTime}
                         duration={duration}
                         onSeek={handleSeek}
