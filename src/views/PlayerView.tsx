@@ -6,6 +6,7 @@ import { PartyState, partySession } from '../services/partySessionService';
 import AudioEngine from '../components/AudioEngine';
 import { translateLyrics } from '../services/geminiService';
 import { VisualizerOverlay } from '../components/VisualizerOverlay';
+import { DesktopPlayerLayout } from '../components/player/DesktopPlayerLayout';
 import { fetchLyrics } from '../services/lyricsService';
 import { useToast } from '../components/Toast';
 
@@ -368,6 +369,52 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     };
 
     const isVideo = currentTrack.type === MediaType.VIDEO;
+
+
+    // Desktop Detection
+    const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 768);
+    useEffect(() => {
+        const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    if (isDesktop && !isMiniMode) {
+        // Wrapper to adapt volume handler
+        const handleVolumeChangeNum = (val: number) => {
+            updateVolume(val);
+        };
+
+        return (
+            <DesktopPlayerLayout
+                currentTrack={currentTrack}
+                isPlaying={isPlaying}
+                onPlayPause={handlePlayPauseProxy}
+                onNext={onNext}
+                onPrev={onPrev}
+                audioElement={audioElement}
+                onClose={onClose}
+                currentTime={currentTime}
+                duration={duration}
+                onSeek={onSeek}
+                isFavorite={isFavorite}
+                onToggleFavorite={onToggleFavorite}
+                shuffleOn={shuffleOn}
+                repeatMode={repeatMode}
+                onToggleShuffle={onToggleShuffle}
+                onToggleRepeat={onToggleRepeat}
+                volume={volume}
+                onVolumeChange={handleVolumeChangeNum}
+                showLyrics={showLyrics}
+                onToggleLyrics={() => setShowLyrics(!showLyrics)}
+                onToggleMiniMode={onToggleMiniMode}
+                accentColor={accentColor}
+                eqSettings={eqSettings}
+                playbackRate={playbackRate}
+                onPlaybackRateChange={setPlaybackRate}
+            />
+        );
+    }
 
     return (
         <div
