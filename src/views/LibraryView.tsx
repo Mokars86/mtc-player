@@ -4,8 +4,8 @@ import { MediaType, MediaItem, Playlist, AppView } from '../types';
 
 // Props Interface
 interface LibraryViewProps {
-    libraryTab: 'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY';
-    setLibraryTab: Dispatch<SetStateAction<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY'>>;
+    libraryTab: 'ALL' | 'AUDIO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY';
+    setLibraryTab: Dispatch<SetStateAction<'ALL' | 'AUDIO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY'>>;
     playlists: Playlist[];
     openCreatePlaylistModal: () => void;
     deletePlaylist: (id: string, e: React.MouseEvent) => void;
@@ -80,7 +80,7 @@ export const LibraryView = ({
                     </div>
 
                     <div className="flex gap-2 mb-6 overflow-x-auto hide-scrollbar pb-2">
-                        {(['ALL', 'AUDIO', 'VIDEO', 'FAVORITES', 'PLAYLISTS', 'ALBUMS', 'ARTISTS', 'LOCAL', 'HISTORY'] as const).map(tab => (
+                        {(['ALL', 'AUDIO', 'FAVORITES', 'PLAYLISTS', 'ALBUMS', 'ARTISTS', 'LOCAL', 'HISTORY'] as const).map(tab => (
                             <button key={tab} onClick={() => setLibraryTab(tab)} className={`px-4 py-2 rounded-full text-sm font-bold transition-all whitespace-nowrap flex-shrink-0 ${libraryTab === tab ? 'bg-brand-accent text-white shadow-md transform scale-105' : 'bg-app-surface text-app-subtext hover:bg-app-card hover:text-app-text border border-app-border'}`}>
                                 {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
                             </button>
@@ -177,22 +177,11 @@ export const LibraryView = ({
                             {filteredMedia.map(media => (
                                 <div key={`${media.id}-${selectedCollection?.id || 'list'}`} onClick={() => playTrack(media)} className={`group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all border border-transparent ${currentTrack?.id === media.id ? 'bg-brand-accent/10 border-brand-accent/20' : 'bg-app-surface hover:bg-app-card hover:shadow-md border-app-border'} ${!isOnline && !media.id.startsWith('local-') && !media.mediaUrl.startsWith('blob:') ? 'opacity-50 grayscale' : ''}`}>
                                     <div className="relative w-12 h-12 flex-shrink-0">
-                                        {media.type === MediaType.VIDEO ? (
-                                            <div className="w-full h-full rounded-lg bg-black/80 flex items-center justify-center text-white overflow-hidden">
-                                                {media.coverUrl ? (
-                                                    <img src={media.coverUrl} className="w-full h-full object-cover opacity-60" />
-                                                ) : (<Icons.Maximize2 className="w-5 h-5 relative z-10" />)}
-                                                <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div className="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center backdrop-blur-sm"><Icons.Play className="w-3 h-3 fill-white text-white ml-0.5" /></div>
-                                                </div>
-                                            </div>
-                                        ) : (
-                                            <div className="relative w-full h-full">
-                                                {media.id.startsWith('local') ? (
-                                                    <div className="w-full h-full rounded-lg bg-brand-dark/30 flex items-center justify-center text-brand-light"><Icons.Music className="w-6 h-6" /></div>
-                                                ) : (<img src={media.coverUrl} className="w-full h-full rounded-lg object-cover shadow-sm" alt={media.title} />)}
-                                            </div>
-                                        )}
+                                        <div className="relative w-full h-full">
+                                            {media.id.startsWith('local') ? (
+                                                <div className="w-full h-full rounded-lg bg-brand-dark/30 flex items-center justify-center text-brand-light"><Icons.Music className="w-6 h-6" /></div>
+                                            ) : (<img src={media.coverUrl} className="w-full h-full rounded-lg object-cover shadow-sm" alt={media.title} />)}
+                                        </div>
                                         {currentTrack?.id === media.id && isPlaying && (
                                             <div className="absolute inset-0 bg-black/40 rounded-lg flex items-center justify-center z-20"><Icons.Activity className="w-5 h-5 text-brand-accent animate-pulse" /></div>
                                         )}
@@ -202,7 +191,7 @@ export const LibraryView = ({
                                         <h3 className={`font-bold text-sm md:text-base truncate ${currentTrack?.id === media.id ? 'text-brand-accent' : 'text-app-text'}`}>{media.title}</h3>
                                         <p className="text-xs md:text-sm text-app-subtext truncate flex items-center gap-2">
                                             {media.artist}
-                                            {media.type === MediaType.VIDEO && <span className="bg-app-card px-1.5 py-0.5 rounded text-[10px] border border-app-border">VIDEO</span>}
+
                                         </p>
                                     </div>
 
@@ -243,7 +232,7 @@ export const LibraryView = ({
                             {libraryTab === 'LOCAL' && <p className="text-sm mt-2">Tap "Import" to add files from your device.</p>}
                             {selectedCollection?.type === 'PLAYLIST' && <p className="text-sm mt-2">This playlist is empty. Add songs from your library.</p>}
                             {libraryTab === 'AUDIO' && <p className="text-sm mt-2">Add some music to your library.</p>}
-                            {libraryTab === 'VIDEO' && <p className="text-sm mt-2">Add some videos to your library.</p>}
+
                             {libraryTab === 'HISTORY' && <p className="text-sm mt-2">Play some tracks to see them here.</p>}
                         </div>
                     )}

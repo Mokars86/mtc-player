@@ -4,8 +4,9 @@ const fs = require('fs');
 
 async function resizeIcons() {
     // Use raw strings or double backslashes for paths
-    const sourcePath = 'C:\\Users\\RAMLA\\.gemini\\antigravity\\brain\\347f346c-ead4-46de-8822-36e9ce7f7260\\modern_music_icon_1767180012228.png';
-    const androidResPath = 'C:\\Users\\RAMLA\\Downloads\\mtc-player\\android\\app\\src\\main\\res';
+    const sourcePath = path.join(__dirname, 'resources', 'icon.png');
+    const androidResPath = path.join(__dirname, 'android', 'app', 'src', 'main', 'res');
+    const pwaIconPath = path.join(__dirname, 'public', 'pwa-icon.png');
 
     const sizes = {
         "mipmap-mdpi": 48,
@@ -42,6 +43,10 @@ async function resizeIcons() {
             await image.clone().resize(size, size).circle().writeAsync(roundIconPath);
             console.log(`Saved ${folder}/ic_launcher_round.png (${size}x${size})`);
         }
+
+        // Generate PWA Icon
+        await image.clone().resize(512, 512).writeAsync(pwaIconPath);
+        console.log(`Saved public/pwa-icon.png (512x512)`);
         console.log("All icons updated successfully.");
     } catch (error) {
         console.error("An error occurred:", error);

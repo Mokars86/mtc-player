@@ -105,3 +105,9 @@ export interface SleepTimer {
   endTime: number | null; // Timestamp
   fadeDuration: number; // ms
 }
+
+export interface ReverbSettings {
+  active: boolean;
+  mix: number; // 0.0 to 1.0
+  decay: number; // seconds
+}

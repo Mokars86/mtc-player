@@ -103,6 +103,7 @@ const AppContent = () => {
 
     // Advanced Audio State
     const [eqSettings, setEqSettings] = useState<EqSettings>({ preset: 'Flat', gains: { 60: 0, 250: 0, 1000: 0, 4000: 0, 16000: 0 } });
+    const [reverbSettings, setReverbSettings] = useState<{ active: boolean, mix: number, decay: number }>({ active: false, mix: 0.3, decay: 1.5 });
     const [sleepTimer, setSleepTimer] = useState<SleepTimer>({ active: false, endTime: null, fadeDuration: 60000 });
 
     // Library & Favorites State
@@ -113,7 +114,7 @@ const AppContent = () => {
     const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
     // We should extract Library State too if possible, but keep here for now
-    const [libraryTab, setLibraryTab] = useState<'ALL' | 'AUDIO' | 'VIDEO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY'>('ALL');
+    const [libraryTab, setLibraryTab] = useState<'ALL' | 'AUDIO' | 'FAVORITES' | 'PLAYLISTS' | 'ALBUMS' | 'ARTISTS' | 'LOCAL' | 'HISTORY'>('ALL');
     const [searchQuery, setSearchQuery] = useState('');
 
     // Playlist & Collection State
@@ -477,8 +478,7 @@ const AppContent = () => {
                 media = localLibrary;
             } else if (libraryTab === 'AUDIO') {
                 media = media.filter(m => m.type === MediaType.MUSIC || m.type === MediaType.PODCAST || m.type === MediaType.AUDIOBOOK);
-            } else if (libraryTab === 'VIDEO') {
-                media = media.filter(m => m.type === MediaType.VIDEO);
+
             } else if (libraryTab === 'PLAYLISTS' || libraryTab === 'ALBUMS' || libraryTab === 'ARTISTS') {
                 media = [];
             } else if (libraryTab === 'HISTORY') {
@@ -512,13 +512,7 @@ const AppContent = () => {
             return [track, ...filtered].slice(0, 10); // Keep last 10
         });
 
-        if (track.type === MediaType.VIDEO) {
-            audioRef.current.pause();
-            setIsPlaying(true);
-            setCurrentTime(0);
-            setDuration(track.duration || 0);
-            return;
-        }
+
 
         // Check offline capability for remote tracks
         if (!isOnline && !track.id.startsWith('local-') && !track.mediaUrl.startsWith('blob:')) {
@@ -584,9 +578,7 @@ const AppContent = () => {
         }
 
         if (autoTrigger && repeatMode === RepeatMode.ONE) {
-            if (currentTrack.type === MediaType.VIDEO) {
-                playTrack(currentTrack);
-            } else if (audioRef.current) {
+            if (audioRef.current) {
                 audioRef.current.currentTime = 0;
                 audioRef.current.play().catch(() => { });
                 setIsPlaying(true);
@@ -636,7 +628,7 @@ const AppContent = () => {
         const currentIdx = list.findIndex(t => t.id === currentTrack.id);
 
         if (currentTime > 3) {
-            if (currentTrack.type !== MediaType.VIDEO && audioRef.current) {
+            if (audioRef.current) {
                 audioRef.current.currentTime = 0;
             } else {
                 playTrack(currentTrack);
@@ -1297,6 +1289,8 @@ const AppContent = () => {
                         gestureSettings={gestureSettings}
                         eqSettings={eqSettings}
                         onUpdateEq={setEqSettings}
+                        reverbSettings={reverbSettings}
+                        onUpdateReverb={setReverbSettings}
                         sleepTimerActive={sleepTimer.active}
                         onSetSleepTimer={setTimer}
                         partyState={partyState}

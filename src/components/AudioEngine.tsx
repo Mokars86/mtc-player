@@ -1,6 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
-import { EqSettings } from '../types';
+import { EqSettings, ReverbSettings } from '../types';
 
 
 interface AudioEngineProps {
@@ -8,6 +8,7 @@ interface AudioEngineProps {
   isPlaying: boolean;
   color?: string;
   eqSettings: EqSettings;
+  reverbSettings?: ReverbSettings;
   onAnalyserReady?: (analyser: AnalyserNode) => void;
 }
 
@@ -19,8 +20,31 @@ const getGlobalContext = () => {
   if (!globalCtx) {
     const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
     globalCtx = new AudioContextClass();
+    // Resume context if suspended (often needed after first interaction)
+    if (globalCtx && globalCtx.state === 'suspended') {
+      globalCtx.resume();
+    }
   }
   return globalCtx;
+};
+
+// Helper: Create Impulse Response for Reverb
+const createImpulseResponse = (ctx: AudioContext, duration: number, decay: number) => {
+  const sampleRate = ctx.sampleRate;
+  const length = sampleRate * duration;
+  const impulse = ctx.createBuffer(2, length, sampleRate);
+  const left = impulse.getChannelData(0);
+  const right = impulse.getChannelData(1);
+
+  for (let i = 0; i < length; i++) {
+    // Exponential decay
+    const n = i / length;
+    const e = Math.pow(1 - n, decay);
+    // Random white noise * decay
+    left[i] = (Math.random() * 2 - 1) * e;
+    right[i] = (Math.random() * 2 - 1) * e;
+  }
+  return impulse;
 };
 
 const AudioEngine: React.FC<AudioEngineProps> = ({
@@ -28,6 +52,7 @@ const AudioEngine: React.FC<AudioEngineProps> = ({
   isPlaying,
   color = '#14b8a6',
   eqSettings,
+  reverbSettings,
   onAnalyserReady
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -36,6 +61,11 @@ const AudioEngine: React.FC<AudioEngineProps> = ({
   // Refs for nodes specific to this component instance
   const analyserRef = useRef<AnalyserNode | null>(null);
   const filtersRef = useRef<BiquadFilterNode[]>([]);
+
+  // Reverb Refs
+  const convolverRef = useRef<ConvolverNode | null>(null);
+  const dryGainRef = useRef<GainNode | null>(null);
+  const wetGainRef = useRef<GainNode | null>(null);
 
   // Initialize Audio Graph
   useEffect(() => {
@@ -61,6 +91,20 @@ const AudioEngine: React.FC<AudioEngineProps> = ({
     });
     filtersRef.current = filters;
 
+    // Create Reverb Nodes
+    const convolver = ctx.createConvolver();
+    // Default impulse
+    convolver.buffer = createImpulseResponse(ctx, 2.0, 2.0);
+    convolverRef.current = convolver;
+
+    const dryGain = ctx.createGain();
+    const wetGain = ctx.createGain();
+    dryGain.gain.value = 1.0;
+    wetGain.gain.value = 0.0;
+    dryGainRef.current = dryGain;
+    wetGainRef.current = wetGain;
+
+
     // Get or Create Source
     let source: MediaElementAudioSourceNode;
     if (sourceCache.has(audioElement)) {
@@ -75,19 +119,36 @@ const AudioEngine: React.FC<AudioEngineProps> = ({
       }
     }
 
-    // Connect Graph: Source -> F1 -> ... -> F5 -> Analyser -> Dest
+    // Connect Graph: 
+    // Source -> Filters -> [Split] 
+    //            |-> DryGain -> Analyser -> Dest
+    //            |-> Convolver -> WetGain -> Analyser -> Dest
     try {
-      // Critical: Disconnect everything first to avoid double-routing (fan-out)
-      // or mixing old graph with new graph if the component remounted.
       source.disconnect();
 
+      // 1. Source to EQ chain start
       source.connect(filters[0]);
 
+      // 2. EQ Chain Internal connections
       for (let i = 0; i < filters.length - 1; i++) {
         filters[i].connect(filters[i + 1]);
       }
-      filters[filters.length - 1].connect(analyser);
+      const eqOutput = filters[filters.length - 1];
+
+      // 3. Connect EQ Output to Dry/Wet Split
+      eqOutput.connect(dryGain);
+      eqOutput.connect(convolver);
+
+      // 4. Connect Reverb path
+      convolver.connect(wetGain);
+
+      // 5. Connect Gains to Analyser (Merger)
+      dryGain.connect(analyser);
+      wetGain.connect(analyser);
+
+      // 6. Analyser to Speakers
       analyser.connect(ctx.destination);
+
     } catch (e) {
       console.error("Audio Graph Connection Error:", e);
     }
@@ -103,14 +164,14 @@ const AudioEngine: React.FC<AudioEngineProps> = ({
     // Cleanup on unmount
     return () => {
       try {
-        // Disconnect source from the EQ/Analyser graph
         source.disconnect();
-
         filters.forEach(f => f.disconnect());
+        convolver.disconnect();
+        dryGain.disconnect();
+        wetGain.disconnect();
         analyser.disconnect();
 
-        // Reconnect source directly to destination so audio continues playing
-        // in the background without the visualizer/EQ overhead.
+        // Reconnect source directly to destination
         source.connect(ctx.destination);
       } catch (e) {
         // Ignore disconnect errors
@@ -125,7 +186,6 @@ const AudioEngine: React.FC<AudioEngineProps> = ({
       const ctx = getGlobalContext();
       const gains = eqSettings.gains;
       const filterNodes = filtersRef.current;
-
       const now = ctx.currentTime;
       // Smooth transition
       filterNodes[0].gain.setTargetAtTime(gains[60], now, 0.1);
@@ -135,6 +195,35 @@ const AudioEngine: React.FC<AudioEngineProps> = ({
       filterNodes[4].gain.setTargetAtTime(gains[16000], now, 0.1);
     }
   }, [eqSettings]);
+
+  // Update Reverb Settings Dynamically
+  useEffect(() => {
+    if (!dryGainRef.current || !wetGainRef.current || !convolverRef.current) return;
+    const ctx = getGlobalContext();
+    const now = ctx.currentTime;
+
+    if (reverbSettings && reverbSettings.active) {
+      // Check if decay changed, regenerate buffer (expensive, maybe debounce or just do it)
+      // We can just regenerate, it's fast enough for small buffs usually
+      // Optimization: only regenerate if decay actually changed significantly or buffer is null
+      if (convolverRef.current.buffer && Math.abs(convolverRef.current.buffer.duration - reverbSettings.decay) > 0.1) {
+        convolverRef.current.buffer = createImpulseResponse(ctx, reverbSettings.decay, reverbSettings.decay > 1 ? 4 : 2);
+      } else if (!convolverRef.current.buffer) {
+        convolverRef.current.buffer = createImpulseResponse(ctx, reverbSettings.decay, 3);
+      }
+
+      // Mix (Equal Power Crossfade is often better, but linear is fine for basic)
+      // Wet = mix, Dry = 1 - mix
+      dryGainRef.current.gain.setTargetAtTime(1 - reverbSettings.mix, now, 0.1);
+      wetGainRef.current.gain.setTargetAtTime(reverbSettings.mix, now, 0.1);
+    } else {
+      // Reverb Off
+      dryGainRef.current.gain.setTargetAtTime(1.0, now, 0.1);
+      wetGainRef.current.gain.setTargetAtTime(0.0, now, 0.1);
+    }
+
+  }, [reverbSettings]);
+
 
   // Visualizer Loop
   useEffect(() => {

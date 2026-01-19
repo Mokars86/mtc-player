@@ -30,6 +30,7 @@ export default {
                 'fade-in': 'fadeIn 0.5s ease-out',
                 'slide-up': 'slideUp 0.5s ease-out',
                 'pulse-slow': 'pulse 3s infinite',
+                'spin-slow': 'spin 3s linear infinite',
             },
             keyframes: {
                 fadeIn: {
