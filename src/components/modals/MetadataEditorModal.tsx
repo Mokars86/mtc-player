@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MediaItem } from '../../types';
 import { Icons } from '../Icon';
 import { useToast } from '../Toast';
-import { ai } from '../../services/geminiService'; // Direct import or via service wrapper if available
+import { getGenAI } from '../../services/geminiService'; // Direct import or via service wrapper if available
 import { fetchCoverArt } from '../../services/coverArtService';
 
 interface MetadataEditorModalProps {
@@ -50,7 +50,8 @@ export const MetadataEditorModal: React.FC<MetadataEditorModalProps> = ({ isOpen
     };
 
     const handleAutoTag = async () => {
-        if (!process.env.API_KEY) {
+        const ai = getGenAI();
+        if (!ai) {
             showToast("AI Key missing", "error");
             return;
         }

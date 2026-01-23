@@ -2,16 +2,27 @@
 import { GoogleGenAI } from "@google/genai";
 import { MediaItem } from "../types";
 
-export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+let aiInstance: GoogleGenAI | null = null;
+
+export const getGenAI = () => {
+  if (aiInstance) return aiInstance;
+  const key = process.env.API_KEY;
+  if (key) {
+    aiInstance = new GoogleGenAI({ apiKey: key });
+    return aiInstance;
+  }
+  return null;
+}
 
 // Helper to check if API key is present
 export const hasApiKey = () => !!process.env.API_KEY;
 
 export const generatePlaylistByMood = async (mood: string): Promise<string> => {
-  if (!hasApiKey()) return "API Key missing. Cannot generate playlist.";
+  const client = getGenAI();
+  if (!client) return "API Key missing. Cannot generate playlist.";
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Suggest a playlist of 5 songs for a "${mood}" mood. Return a JSON array of objects with 'title', 'artist', and a short 'reason' why it fits. Do not include markdown formatting like \`\`\`json.`,
       config: {
@@ -26,10 +37,11 @@ export const generatePlaylistByMood = async (mood: string): Promise<string> => {
 };
 
 export const getSmartSummary = async (text: string): Promise<string> => {
-  if (!hasApiKey()) return "API Key missing.";
+  const client = getGenAI();
+  if (!client) return "API Key missing.";
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Summarize the following podcast transcript into 3 key bullet points:\n\n${text}`
     });
@@ -41,10 +53,11 @@ export const getSmartSummary = async (text: string): Promise<string> => {
 };
 
 export const translateLyrics = async (lyrics: string, targetLang: string = 'English'): Promise<string> => {
-  if (!hasApiKey()) return lyrics; // Fallback
+  const client = getGenAI();
+  if (!client) return lyrics; // Fallback
 
   try {
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `Translate the following lyrics to ${targetLang}. Maintain the rhythm and line breaks if possible:\n\n${lyrics}`
     });
@@ -61,7 +74,8 @@ export interface ChatMessage {
 }
 
 export const chatWithMusicGenius = async (history: ChatMessage[], message: string, currentTrack?: MediaItem | null): Promise<string> => {
-  if (!hasApiKey()) return "I need an API Key to function. Please configure it in your environment.";
+  const client = getGenAI();
+  if (!client) return "I need an API Key to function. Please configure it in your environment.";
 
   try {
     const contextPrompt = currentTrack
@@ -74,7 +88,7 @@ export const chatWithMusicGenius = async (history: ChatMessage[], message: strin
     Answer music-related questions, explain lyrics, or suggest similar artists. 
     Keep responses under 100 words unless asked for a deep dive.`;
 
-    const chat = ai.chats.create({
+    const chat = client.chats.create({
       model: 'gemini-2.5-flash',
       config: {
         systemInstruction: systemInstruction,
@@ -105,7 +119,8 @@ export interface AICommand {
 }
 
 export const processVoiceCommand = async (transcript: string, availableTracks: MediaItem[]): Promise<AICommand> => {
-  if (!hasApiKey()) return { action: 'UNKNOWN', feedback: "I can't process commands without an API key." };
+  const client = getGenAI();
+  if (!client) return { action: 'UNKNOWN', feedback: "I can't process commands without an API key." };
 
   try {
     // Create a mini-context of available music (limit to avoid token limits if library is huge)
@@ -117,7 +132,7 @@ export const processVoiceCommand = async (transcript: string, availableTracks: M
 
     const trackListSnippet = availableTracks.slice(0, 50).map(t => `"${t.title}" by ${t.artist}`).join(", ");
 
-    const response = await ai.models.generateContent({
+    const response = await client.models.generateContent({
       model: 'gemini-2.5-flash',
       contents: `
                 You are a smart DJ. Interpret this voice command: "${transcript}".
