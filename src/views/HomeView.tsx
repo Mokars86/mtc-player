@@ -149,7 +149,12 @@ const HomeView: React.FC<HomeViewProps> = ({
                   className="min-w-[140px] w-[140px] group cursor-pointer snap-start"
                 >
                   <div className="aspect-square rounded-xl overflow-hidden mb-3 relative shadow-lg">
-                    <img src={track.coverUrl || 'https://picsum.photos/200'} alt={track.title} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                    <img
+                      src={(!isOnline && (!track.coverUrl || track.coverUrl.startsWith('http'))) ? '/mtc-offline-cover.png' : (track.coverUrl || (isOnline ? 'https://picsum.photos/200' : '/mtc-offline-cover.png'))}
+                      onError={(e) => { e.currentTarget.src = '/mtc-offline-cover.png'; }}
+                      alt={track.title}
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                    />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                       <div className="w-10 h-10 bg-brand-accent rounded-full flex items-center justify-center text-white shadow-xl transform scale-50 group-hover:scale-100 transition-all">
                         <Icons.Play className="w-5 h-5 ml-1" />
@@ -180,7 +185,12 @@ const HomeView: React.FC<HomeViewProps> = ({
                   className="flex items-center gap-3 p-3 bg-app-card hover:bg-app-card/80 border border-app-border rounded-xl cursor-pointer transition-colors group"
                 >
                   <div className="w-12 h-12 rounded-lg overflow-hidden flex-shrink-0 relative">
-                    <img src={track.coverUrl || 'https://picsum.photos/200'} alt={track.title} className="w-full h-full object-cover" />
+                    <img
+                      src={(!isOnline && (!track.coverUrl || track.coverUrl.startsWith('http'))) ? '/mtc-offline-cover.png' : (track.coverUrl || (isOnline ? 'https://picsum.photos/200' : '/mtc-offline-cover.png'))}
+                      onError={(e) => { e.currentTarget.src = '/mtc-offline-cover.png'; }}
+                      alt={track.title}
+                      className="w-full h-full object-cover"
+                    />
                     <div className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                       <Icons.Play className="w-4 h-4 text-white" />
                     </div>

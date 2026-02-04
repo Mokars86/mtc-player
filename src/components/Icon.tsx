@@ -8,7 +8,7 @@ import {
   Sun, Moon, Sliders, Timer, Trash2, ListPlus, FolderPlus, MoreVertical, X,
   Gauge, Languages, Disc, Users, Info, Mail, Lock, Loader, User, LogOut, Check, Coffee, History, Sparkles, Mic, Edit,
 
-  BarChart2, TrendingUp, Clock, Globe, Radio, Share2, ChevronDown, Shield, FileText, ChevronRight, Download, CheckCircle
+  BarChart2, TrendingUp, Clock, Globe, Radio, Share2, ChevronDown, Shield, FileText, ChevronRight, Download, CheckCircle, LayoutGrid, List
 } from 'lucide-react';
 
 export const Icons = {
@@ -19,7 +19,7 @@ export const Icons = {
   Sun, Moon, Sliders, Timer, Trash2, ListPlus, FolderPlus, MoreVertical, X,
   Gauge, Languages, Disc, Users, Info, Mail, Lock, Loader, User, LogOut, Check, Coffee, History, Sparkles, Mic, Edit,
   BarChart2, TrendingUp, Clock, Globe, Radio, Share2, ChevronDown,
-  Shield, FileText, ChevronRight, Download, CheckCircle
+  Shield, FileText, ChevronRight, Download, CheckCircle, LayoutGrid, List
 };
 
 export type IconName = keyof typeof Icons;
