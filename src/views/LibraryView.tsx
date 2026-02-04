@@ -1,5 +1,6 @@
 import React, { Dispatch, SetStateAction } from 'react';
 import { Icons } from '../components/Icon';
+import { TrackOptionsModal } from '../components/modals/TrackOptionsModal';
 import { MediaType, MediaItem, Playlist, AppView } from '../types';
 
 // Props Interface
@@ -42,15 +43,17 @@ export const LibraryView = ({
     localLibrary, isOnline, setShuffleOn, removeFromPlaylist, addToPlaylist, scanFolder, onEditMetadata
 }: LibraryViewProps) => {
 
+    const [trackOptions, setTrackOptions] = React.useState<MediaItem | null>(null);
+
     return (
-        <div className="p-4 md:p-6 animate-slide-up min-h-full overflow-x-hidden w-full max-w-5xl mx-auto">
+        <div className="p-3 md:p-6 animate-slide-up min-h-full overflow-x-hidden w-full max-w-5xl mx-auto">
             {/* Library Header */}
             <div className="flex justify-between items-center mb-6">
                 <div className="flex items-center gap-2">
                     {selectedCollection ? (
                         <button onClick={() => setSelectedCollection(null)} className="p-1 hover:bg-app-surface rounded-full"><Icons.SkipBack className="w-6 h-6 rotate-180" /></button>
                     ) : null}
-                    <h1 className="text-3xl font-bold text-app-text truncate max-w-[200px] sm:max-w-none">{selectedCollection ? selectedCollection.title : 'Library'}</h1>
+                    <h1 className="text-2xl md:text-3xl font-bold text-app-text truncate max-w-[150px] xs:max-w-none">{selectedCollection ? selectedCollection.title : 'Library'}</h1>
                 </div>
                 <div className="flex gap-2">
                     {libraryTab === 'LOCAL' && localLibrary.length > 0 && !selectedCollection && (
@@ -119,7 +122,7 @@ export const LibraryView = ({
                                     <h3 className="font-bold text-white truncate text-sm">{playlist.name}</h3>
                                     <p className="text-xs text-gray-300">{playlist.tracks.length} tracks</p>
                                 </div>
-                                <button onClick={(e) => deletePlaylist(playlist.id, e)} className="absolute top-2 right-2 p-1.5 bg-black/50 hover:bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={(e) => deletePlaylist(playlist.id, e)} className="absolute top-2 right-2 p-2 bg-black/60 text-white rounded-full opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-opacity hover:bg-red-500 shadow-sm z-10" aria-label="Delete Playlist">
                                     <Icons.Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
@@ -163,7 +166,7 @@ export const LibraryView = ({
             {((!selectedCollection && !['PLAYLISTS', 'ALBUMS', 'ARTISTS'].includes(libraryTab)) || selectedCollection) && (
                 <div className="space-y-1">
                     {filteredMedia.length > 0 ? (
-                        <div className="grid gap-3">
+                        <div className="flex flex-col gap-2">
                             {selectedCollection && (
                                 <div className="flex justify-center gap-4 mb-6">
                                     <button onClick={() => { playTrack(filteredMedia[0]); }} className="flex items-center gap-2 bg-brand-accent text-white px-8 py-3 rounded-full font-bold shadow-lg hover:bg-brand-light transition transform hover:scale-105 active:scale-95">
@@ -175,7 +178,7 @@ export const LibraryView = ({
                                 </div>
                             )}
                             {filteredMedia.map(media => (
-                                <div key={`${media.id}-${selectedCollection?.id || 'list'}`} onClick={() => playTrack(media)} className={`group flex items-center gap-4 p-3 rounded-xl cursor-pointer transition-all border border-transparent ${currentTrack?.id === media.id ? 'bg-brand-accent/10 border-brand-accent/20' : 'bg-app-surface hover:bg-app-card hover:shadow-md border-app-border'} ${!isOnline && !media.id.startsWith('local-') && !media.mediaUrl.startsWith('blob:') ? 'opacity-50 grayscale' : ''}`}>
+                                <div key={`${media.id}-${selectedCollection?.id || 'list'}`} onClick={() => playTrack(media)} className={`group flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-xl cursor-pointer transition-all border border-transparent ${currentTrack?.id === media.id ? 'bg-brand-accent/10 border-brand-accent/20' : 'bg-app-surface hover:bg-app-card hover:shadow-md border-app-border'} ${!isOnline && !media.id.startsWith('local-') && !media.mediaUrl.startsWith('blob:') ? 'opacity-50 grayscale' : ''}`}>
                                     <div className="relative w-12 h-12 flex-shrink-0">
                                         <div className="relative w-full h-full">
                                             {media.id.startsWith('local') ? (
@@ -195,31 +198,39 @@ export const LibraryView = ({
                                         </p>
                                     </div>
 
-                                    <div className="flex items-center gap-1 sm:gap-2">
-                                        <button onClick={(e) => toggleFavorite(media.id, e)} className="p-2 rounded-full hover:bg-app-bg transition-colors">
-                                            <Icons.Heart className={`w-5 h-5 transition-transform active:scale-90 ${favorites.has(media.id) ? 'fill-brand-accent text-brand-accent' : 'text-app-subtext group-hover:text-app-text'}`} />
+                                    <div className="flex items-center gap-0.5 sm:gap-2">
+                                        {/* Mobile Options Menu */}
+                                        <button onClick={(e) => { e.stopPropagation(); setTrackOptions(media); }} className="p-2 sm:hidden rounded-full hover:bg-app-bg text-app-subtext transition-colors">
+                                            <Icons.MoreVertical className="w-5 h-5" />
                                         </button>
-                                        {selectedCollection?.type === 'PLAYLIST' ? (
-                                            <button onClick={(e) => removeFromPlaylist(selectedCollection.id, media.id, e)} className="p-2 rounded-full hover:bg-red-500/10 text-app-subtext hover:text-red-500 transition-colors" title="Remove from Playlist">
-                                                <Icons.X className="w-5 h-5" />
+
+                                        {/* Desktop Actions */}
+                                        <div className="hidden sm:flex items-center gap-2">
+                                            <button onClick={(e) => toggleFavorite(media.id, e)} className="p-1.5 sm:p-2 rounded-full hover:bg-app-bg transition-colors">
+                                                <Icons.Heart className={`w-5 h-5 transition-transform active:scale-90 ${favorites.has(media.id) ? 'fill-brand-accent text-brand-accent' : 'text-app-subtext group-hover:text-app-text'}`} />
                                             </button>
-                                        ) : (
-                                            <button onClick={(e) => { e.stopPropagation(); setTrackToAction(media); }} className="p-2 rounded-full hover:bg-app-bg text-app-subtext hover:text-brand-accent transition-colors" title="Add to Playlist">
-                                                <Icons.ListPlus className="w-5 h-5" />
-                                            </button>
-                                        )}
-                                        {media.id.startsWith('local') && !selectedCollection && (
-                                            <>
-                                                {onEditMetadata && (
-                                                    <button onClick={(e) => { e.stopPropagation(); onEditMetadata(media); }} className="p-2 rounded-full hover:bg-app-bg text-app-subtext hover:text-brand-accent transition-colors" title="Edit Metadata">
-                                                        <Icons.Edit className="w-5 h-5" />
-                                                    </button>
-                                                )}
-                                                <button onClick={(e) => removeFromLibrary(media.id, e)} className="p-2 rounded-full hover:bg-red-500/10 text-app-subtext hover:text-red-500 transition-colors" title="Delete File">
-                                                    <Icons.Trash2 className="w-5 h-5" />
+                                            {selectedCollection?.type === 'PLAYLIST' ? (
+                                                <button onClick={(e) => removeFromPlaylist(selectedCollection.id, media.id, e)} className="p-1.5 sm:p-2 rounded-full hover:bg-red-500/10 text-app-subtext hover:text-red-500 transition-colors" title="Remove from Playlist">
+                                                    <Icons.X className="w-5 h-5" />
                                                 </button>
-                                            </>
-                                        )}
+                                            ) : (
+                                                <button onClick={(e) => { e.stopPropagation(); setTrackToAction(media); }} className="p-1.5 sm:p-2 rounded-full bg-app-bg/50 text-app-text hover:bg-app-bg hover:text-brand-accent transition-colors active:scale-95 border border-app-border/50" title="Add to Playlist">
+                                                    <Icons.ListPlus className="w-5 h-5" />
+                                                </button>
+                                            )}
+                                            {media.id.startsWith('local') && !selectedCollection && (
+                                                <>
+                                                    {onEditMetadata && (
+                                                        <button onClick={(e) => { e.stopPropagation(); onEditMetadata(media); }} className="p-1.5 sm:p-2 rounded-full hover:bg-app-bg text-app-subtext hover:text-brand-accent transition-colors" title="Edit Metadata">
+                                                            <Icons.Edit className="w-5 h-5" />
+                                                        </button>
+                                                    )}
+                                                    <button onClick={(e) => removeFromLibrary(media.id, e)} className="p-1.5 sm:p-2 rounded-full hover:bg-red-500/10 text-app-subtext hover:text-red-500 transition-colors" title="Delete File">
+                                                        <Icons.Trash2 className="w-5 h-5" />
+                                                    </button>
+                                                </>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -238,6 +249,20 @@ export const LibraryView = ({
                     )}
                 </div>
             )}
+
+            {/* Track Options Modal (Mobile) */}
+            <TrackOptionsModal
+                isOpen={!!trackOptions}
+                onClose={() => setTrackOptions(null)}
+                track={trackOptions}
+                isFavorite={trackOptions ? favorites.has(trackOptions.id) : false}
+                toggleFavorite={() => trackOptions && toggleFavorite(trackOptions.id)}
+                onAddToPlaylist={() => trackOptions && setTrackToAction(trackOptions)}
+                onRemoveFromPlaylist={selectedCollection?.type === 'PLAYLIST' && trackOptions ? () => removeFromPlaylist(selectedCollection.id, trackOptions.id) : undefined}
+                onEditMetadata={onEditMetadata && trackOptions?.id.startsWith('local') ? () => onEditMetadata(trackOptions) : undefined}
+                onDelete={trackOptions?.id.startsWith('local') && !selectedCollection ? () => removeFromLibrary(trackOptions.id) : undefined}
+                deleteLabel="Delete File"
+            />
         </div>
     );
 };

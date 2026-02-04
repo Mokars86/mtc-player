@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Icons } from '../components/Icon';
-import { MediaItem, RepeatMode, MediaType, GestureSettings, GestureType, GestureAction, EqSettings, PresetName } from '../types';
+import { MediaItem, RepeatMode, MediaType, GestureSettings, GestureType, GestureAction, EqSettings, PresetName, ReverbSettings } from '../types';
 import { PartyState, partySession } from '../services/partySessionService';
 import AudioEngine from '../components/AudioEngine';
 import { translateLyrics } from '../services/geminiService';

@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { App as CapacitorApp } from '@capacitor/app';
-import { AppView, MediaItem, MediaType, RepeatMode, GestureType, GestureAction, GestureSettings, EqSettings, SleepTimer, Playlist, Theme } from './types';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { NavigationBar } from '@capgo/capacitor-navigation-bar';
+import { AppView, MediaItem, MediaType, RepeatMode, GestureType, GestureAction, GestureSettings, EqSettings, SleepTimer, Playlist, Theme, PresetName } from './types';
 import { SKINS, Skin } from './constants/skins';
 import { Icons } from './components/Icon';
 import HomeView from './views/HomeView';
@@ -81,12 +83,25 @@ const AppContent = () => {
         root.style.setProperty('--brand-accent', selectedSkin.colors.accent);
         root.style.setProperty('--brand-pink', selectedSkin.colors.secondary); // reusing pink var for secondary
 
-        // Tailwind class hack for light mode if needed, though we use vars now
-        if (theme === 'light') {
-            document.documentElement.classList.add('light-theme');
-        } else {
-            document.documentElement.classList.remove('light-theme');
-        }
+        // Update System Bars & Classes
+        const updateSystemUI = async () => {
+            try {
+                if (theme === 'light') {
+                    document.documentElement.classList.add('light-theme');
+                    await StatusBar.setStyle({ style: Style.Light });
+                } else {
+                    document.documentElement.classList.remove('light-theme');
+                    await StatusBar.setStyle({ style: Style.Dark });
+                }
+
+                // Set colors
+                await StatusBar.setBackgroundColor({ color: selectedSkin.colors.bgApp });
+                await NavigationBar.setNavigationBarColor({ color: selectedSkin.colors.bgApp });
+            } catch (e) {
+                // Feature might not be available on web
+            }
+        };
+        updateSystemUI();
     }, [theme]);
 
 
@@ -147,7 +162,7 @@ const AppContent = () => {
                     const updated = { ...currentTrack, coverUrl: url };
                     setCurrentTrack(updated);
                     setLocalLibrary(prev => prev.map(m => m.id === currentTrack.id ? updated : m));
-                    updateMediaItem(updated);
+                    updateMediaItem(updated.id, updated);
                 }
             });
         }
@@ -570,7 +585,6 @@ const AppContent = () => {
         if (autoTrigger) {
             incrementPlayCount(currentTrack.id, Date.now()).then(updated => {
                 if (updated) {
-                    setAllMedia(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
                     // Also update localLibrary if it's there
                     setLocalLibrary(prev => prev.map(m => m.id === updated.id ? { ...m, ...updated } : m));
                 }
@@ -645,14 +659,17 @@ const AppContent = () => {
         audio.crossOrigin = "anonymous";
         audioRef.current = audio;
 
+        // --- MEDIA SESSION SETUP ---
+        if ('mediaSession' in navigator) {
+            // Initial empty setup to prevent errors, but real handlers come later
+        }
+
         const updateTime = () => setCurrentTime(audio.currentTime);
         const updateDuration = () => setDuration(audio.duration);
         const onEnded = () => { handleNextRef.current(true); };
         const onError = (e: Event) => {
             const target = e.target as HTMLAudioElement;
-            // Suppress errors if we know we are offline or if it's an AbortError
             if (target.error && target.error.code !== target.error.MEDIA_ERR_ABORTED && navigator.onLine) {
-                // We handle basic loading errors in playTrack now, but valid stream errors might still bubble here
                 console.warn("Audio Element Error:", target.error);
             }
         };
@@ -668,8 +685,60 @@ const AppContent = () => {
             audio.removeEventListener('ended', onEnded);
             audio.removeEventListener('error', onError);
             audio.pause();
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.setActionHandler('play', null);
+                navigator.mediaSession.setActionHandler('pause', null);
+                navigator.mediaSession.setActionHandler('previoustrack', null);
+                navigator.mediaSession.setActionHandler('nexttrack', null);
+            }
         };
     }, []);
+
+    // --- MEDIA SESSION UPDATES ---
+    useEffect(() => {
+        if (!currentTrack || !('mediaSession' in navigator)) return;
+
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: currentTrack.title,
+            artist: currentTrack.artist,
+            album: currentTrack.album || 'MTC Player',
+            artwork: [
+                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '96x96', type: 'image/png' },
+                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '128x128', type: 'image/png' },
+                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '192x192', type: 'image/png' },
+                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '512x512', type: 'image/png' },
+            ]
+        });
+
+        // Update handlers with latest closures
+        navigator.mediaSession.setActionHandler('play', () => {
+            audioRef.current?.play().catch(() => { });
+            setIsPlaying(true);
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+            audioRef.current?.pause();
+            setIsPlaying(false);
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+            handlePrev();
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+            handleNext(false);
+        });
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (details.seekTime && audioRef.current) {
+                audioRef.current.currentTime = details.seekTime;
+                setCurrentTime(details.seekTime);
+            }
+        });
+
+    }, [currentTrack, handleNext, handlePrev]);
+
+    useEffect(() => {
+        if ('mediaSession' in navigator) {
+            navigator.mediaSession.playbackState = isPlaying ? "playing" : "paused";
+        }
+    }, [isPlaying]);
 
     const toggleTheme = (newTheme: Theme) => {
         setTheme(newTheme);
@@ -888,6 +957,10 @@ const AppContent = () => {
 
     const deletePlaylist = (id: string, e: React.MouseEvent) => {
         e.stopPropagation();
+        if (isGuest) {
+            showToast("Guest users cannot delete playlists.", "error");
+            return;
+        }
         if (confirm("Delete this playlist?")) {
             setPlaylists(prev => prev.filter(p => p.id !== id));
             if (selectedCollection?.id === id) setSelectedCollection(null);
@@ -898,6 +971,10 @@ const AppContent = () => {
     const addToPlaylist = (playlistId: string, trackId: string) => {
         if (!isOnline) {
             showToast("Offline: Cannot modify playlists.", "error");
+            return;
+        }
+        if (isGuest) {
+            showToast("Guest users cannot modify playlists.", "error");
             return;
         }
         let added = false;
@@ -920,6 +997,10 @@ const AppContent = () => {
 
     const removeFromPlaylist = (playlistId: string, trackId: string, e?: React.MouseEvent) => {
         if (e) e.stopPropagation();
+        if (isGuest) {
+            showToast("Guest users cannot modify playlists.", "error");
+            return;
+        }
         setPlaylists(prev => prev.map(p => {
             if (p.id === playlistId) {
                 return { ...p, tracks: p.tracks.filter(id => id !== trackId) };
@@ -1129,6 +1210,7 @@ const AppContent = () => {
                 removeFromPlaylist={removeFromPlaylist}
                 addToPlaylist={addToPlaylist}
                 scanFolder={handleScanFolder}
+                onEditMetadata={handleEditMetadata}
             />
         )
     };
@@ -1143,7 +1225,7 @@ const AppContent = () => {
                 {/* Offline Banner */}
                 {!isOnline && (
                     <div className="bg-red-600 text-white text-xs font-bold text-center py-1 absolute top-0 w-full z-[60] shadow-md animate-slide-up">
-                        You are currently offline. Some features may be limited.
+                        Offline Mode - Local Library Only
                     </div>
                 )}
 
@@ -1202,7 +1284,7 @@ const AppContent = () => {
                         />
                     )}
                     {/* Using the component extraction logic, we assume we have a LibraryView now */}
-                    {currentView === AppView.LIBRARY && renderLibrary({ onEditMetadata: handleEditMetadata })}
+                    {currentView === AppView.LIBRARY && renderLibrary()}
 
 
                     {currentView === AppView.AI_CHAT && (

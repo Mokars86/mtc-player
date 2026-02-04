@@ -6,6 +6,9 @@ export default {
     ],
     theme: {
         extend: {
+            screens: {
+                'xs': '475px',
+            },
             colors: {
                 brand: {
                     dark: 'var(--bg-app)',      // Mapped to main bg

@@ -14,6 +14,21 @@ interface SettingsViewProps {
 }
 
 export const SettingsView = ({ theme, toggleTheme, gestureSettings, updateGesture, isGuest, onLogout, onShowSupport }: SettingsViewProps) => {
+    const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+    const [isDeleting, setIsDeleting] = React.useState(false);
+
+    const handleDeleteAccount = async () => {
+        setIsDeleting(true);
+        try {
+            await import('../services/api').then(m => m.api.deleteAccount());
+            onLogout(); // Ensure app state is cleared
+        } catch (e) {
+            alert("Failed to delete account. Please try again or contact support.");
+            setIsDeleting(false);
+            setShowDeleteConfirm(false);
+        }
+    };
+
     return (
         <div className="p-6 animate-slide-up pb-24">
             <h1 className="text-3xl font-bold mb-6 text-app-text">Settings</h1>
@@ -124,6 +139,69 @@ export const SettingsView = ({ theme, toggleTheme, gestureSettings, updateGestur
                         </div>
                     </div>
                 </section>
+
+                {/* About & Legal Section */}
+                <section className="glass-panel p-4 rounded-xl space-y-4">
+                    <h2 className="text-sm text-app-subtext uppercase font-bold tracking-wider mb-2">About & Legal</h2>
+                    <div className="space-y-2">
+                        <a href="https://mtc-player.com/privacy" target="_blank" rel="noreferrer" className="flex justify-between items-center p-2 hover:bg-app-surface rounded-lg transition-colors cursor-pointer text-app-text">
+                            <span className="flex items-center gap-3"><Icons.Shield className="w-4 h-4" /> Privacy Policy</span>
+                            <Icons.ChevronRight className="w-4 h-4 text-app-subtext" />
+                        </a>
+                        <a href="https://mtc-player.com/terms" target="_blank" rel="noreferrer" className="flex justify-between items-center p-2 hover:bg-app-surface rounded-lg transition-colors cursor-pointer text-app-text">
+                            <span className="flex items-center gap-3"><Icons.FileText className="w-4 h-4" /> Terms of Service</span>
+                            <Icons.ChevronRight className="w-4 h-4 text-app-subtext" />
+                        </a>
+                        <a href="mailto:support@mtc-player.com" className="flex justify-between items-center p-2 hover:bg-app-surface rounded-lg transition-colors cursor-pointer text-app-text">
+                            <span className="flex items-center gap-3"><Icons.Mail className="w-4 h-4" /> Send Feedback</span>
+                            <Icons.ChevronRight className="w-4 h-4 text-app-subtext" />
+                        </a>
+                        <div className="p-2 text-xs text-app-subtext flex justify-between items-center mt-2 border-t border-app-border pt-4">
+                            <span>App Version</span>
+                            <span className="font-mono">v1.2.0 (Build 5)</span>
+                        </div>
+                    </div>
+                </section>
+
+                {/* Danger Zone */}
+                {!isGuest && (
+                    <section className="glass-panel p-4 rounded-xl space-y-4 border border-red-500/20 bg-red-500/5">
+                        <h2 className="text-sm text-red-500 uppercase font-bold tracking-wider mb-2">Danger Zone</h2>
+                        <div className="p-2">
+                            {!showDeleteConfirm ? (
+                                <button
+                                    onClick={() => setShowDeleteConfirm(true)}
+                                    className="w-full py-3 border border-red-500/50 text-red-500 rounded-xl hover:bg-red-500 hover:text-white transition-all font-bold flex items-center justify-center gap-2"
+                                >
+                                    <Icons.Trash2 className="w-4 h-4" />
+                                    Delete Account
+                                </button>
+                            ) : (
+                                <div className="space-y-3 animate-fade-in">
+                                    <p className="text-sm text-app-text font-bold text-center">Are you sure? This action is irreversible.</p>
+                                    <div className="flex gap-3">
+                                        <button
+                                            onClick={() => setShowDeleteConfirm(false)}
+                                            className="flex-1 py-2 bg-app-surface text-app-text rounded-lg font-bold"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handleDeleteAccount}
+                                            disabled={isDeleting}
+                                            className="flex-1 py-2 bg-red-500 text-white rounded-lg font-bold flex items-center justify-center gap-2"
+                                        >
+                                            {isDeleting ? 'Deleting...' : 'Yes, Delete Everything'}
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            <p className="text-xs text-app-subtext mt-3 text-center">
+                                Deleting your account will remove all your playlists, favorites, and usage history permanently.
+                            </p>
+                        </div>
+                    </section>
+                )}
 
             </div>
         </div>
