@@ -14,7 +14,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { api } from './services/api';
 import { supabase } from './services/supabase';
 import { AuthView } from './views/AuthView';
-import { saveBatchMediaToDB, loadMediaFromDB, clearMediaDB, removeMediaFromDB } from './services/db';
+import { saveBatchMediaToDB, saveMediaToDB, loadMediaFromDB, clearMediaDB, removeMediaFromDB } from './services/db';
 
 // Extracted Components
 import { SplashScreen } from './components/SplashScreen';
@@ -698,37 +698,61 @@ const AppContent = () => {
     useEffect(() => {
         if (!currentTrack || !('mediaSession' in navigator)) return;
 
+        // Ensure absolute path for local assets
+        const getAbsoluteUrl = (path: string) => {
+            if (path.startsWith('http')) return path;
+            if (path.startsWith('blob:')) return path; // Blobs might fail on some Android versions but rarely crash
+            return `${window.location.origin}${path.startsWith('/') ? '' : '/'}${path}`;
+        };
+
+        const artwork = [
+            { src: getAbsoluteUrl(currentTrack.coverUrl || '/pwa-icon.png'), sizes: '96x96', type: 'image/png' },
+            { src: getAbsoluteUrl(currentTrack.coverUrl || '/pwa-icon.png'), sizes: '128x128', type: 'image/png' },
+            { src: getAbsoluteUrl(currentTrack.coverUrl || '/pwa-icon.png'), sizes: '192x192', type: 'image/png' },
+            { src: getAbsoluteUrl(currentTrack.coverUrl || '/pwa-icon.png'), sizes: '512x512', type: 'image/png' },
+        ];
+
         navigator.mediaSession.metadata = new MediaMetadata({
             title: currentTrack.title,
             artist: currentTrack.artist,
             album: currentTrack.album || 'MTC Player',
-            artwork: [
-                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '96x96', type: 'image/png' },
-                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '128x128', type: 'image/png' },
-                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '192x192', type: 'image/png' },
-                { src: currentTrack.coverUrl || '/pwa-icon.png', sizes: '512x512', type: 'image/png' },
-            ]
+            artwork: artwork
         });
 
         // Update handlers with latest closures
-        navigator.mediaSession.setActionHandler('play', () => {
-            audioRef.current?.play().catch(() => { });
-            setIsPlaying(true);
-        });
-        navigator.mediaSession.setActionHandler('pause', () => {
-            audioRef.current?.pause();
-            setIsPlaying(false);
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-            handlePrev();
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-            handleNext(false);
-        });
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-            if (details.seekTime && audioRef.current) {
-                audioRef.current.currentTime = details.seekTime;
-                setCurrentTime(details.seekTime);
+        const handlers = [
+            ['play', () => { audioRef.current?.play().catch(() => { }); setIsPlaying(true); }],
+            ['pause', () => { audioRef.current?.pause(); setIsPlaying(false); }],
+            ['stop', () => { audioRef.current?.pause(); setIsPlaying(false); }],
+            ['previoustrack', () => handlePrev()],
+            ['nexttrack', () => handleNext(false)],
+            ['seekbackward', (details: MediaSessionActionDetails) => {
+                const skipTime = details.seekOffset || 10;
+                if (audioRef.current) {
+                    audioRef.current.currentTime = Math.max(audioRef.current.currentTime - skipTime, 0);
+                    setCurrentTime(audioRef.current.currentTime);
+                }
+            }],
+            ['seekforward', (details: MediaSessionActionDetails) => {
+                const skipTime = details.seekOffset || 10;
+                if (audioRef.current) {
+                    audioRef.current.currentTime = Math.min(audioRef.current.currentTime + skipTime, audioRef.current.duration || 0);
+                    setCurrentTime(audioRef.current.currentTime);
+                }
+            }],
+            ['seekto', (details: MediaSessionActionDetails) => {
+                if (details.seekTime !== undefined && audioRef.current) {
+                    audioRef.current.currentTime = details.seekTime;
+                    setCurrentTime(details.seekTime);
+                }
+            }]
+        ];
+
+        handlers.forEach(([action, handler]) => {
+            try {
+                navigator.mediaSession.setActionHandler(action as MediaSessionAction, handler as MediaSessionActionHandler);
+            } catch (e) {
+                console.warn(`Media Session action ${action} not supported`);
             }
         });
 
@@ -1014,49 +1038,83 @@ const AppContent = () => {
         const files = event.target.files;
         if (!files || files.length === 0) return;
 
+        // Process files sequentially to avoid OOM crashes on mobile
+        const processedTracks: MediaItem[] = [];
+        const fileCount = files.length;
+
+        showToast(`Importing ${fileCount} files...`, "info");
+
         try {
-            const newTracks: MediaItem[] = Array.from(files).map((file: File, index) => {
-                const isVideo = file.type.startsWith('video');
-                const objectUrl = URL.createObjectURL(file);
+            for (let i = 0; i < fileCount; i++) {
+                const file = files.item(i);
+                if (!file) continue;
 
-                let title = file.name.replace(/\.[^/.]+$/, "");
-                let artist = 'Local Artist';
+                try {
+                    const isVideo = file.type.startsWith('video');
+                    const objectUrl = URL.createObjectURL(file);
 
-                if (title.includes('-')) {
-                    const parts = title.split('-');
-                    if (parts.length >= 2) {
-                        artist = parts[0].trim();
-                        title = parts.slice(1).join('-').trim();
+                    let title = file.name.replace(/\.[^/.]+$/, "");
+                    let artist = 'Local Artist';
+
+                    if (title.includes('-')) {
+                        const parts = title.split('-');
+                        if (parts.length >= 2) {
+                            artist = parts[0].trim();
+                            title = parts.slice(1).join('-').trim();
+                        }
                     }
-                }
 
-                return {
-                    id: `local-${Date.now()}-${index}`,
-                    title: title,
-                    artist: artist,
-                    album: 'Local Uploads',
-                    coverUrl: isVideo ? '' : 'https://picsum.photos/400/400?grayscale',
-                    mediaUrl: objectUrl,
-                    type: isVideo ? MediaType.VIDEO : MediaType.MUSIC,
-                    duration: 0,
-                    moods: ['Local']
-                };
+                    const newItem: MediaItem = {
+                        id: `local-${Date.now()}-${i}-${Math.random().toString(36).substr(2, 9)}`,
+                        title: title,
+                        artist: artist,
+                        album: 'Local Uploads',
+                        coverUrl: isVideo ? '' : 'https://picsum.photos/400/400?grayscale',
+                        mediaUrl: objectUrl,
+                        type: isVideo ? MediaType.VIDEO : MediaType.MUSIC,
+                        duration: 0,
+                        moods: ['Local']
+                    };
+
+                    // Save to DB immediately to persist safely
+                    await saveMediaToDB(newItem, file);
+                    processedTracks.push(newItem);
+
+                    // Update UI every 5 items to show progress, but avoid too many re-renders
+                    if (processedTracks.length % 5 === 0) {
+                        setLocalLibrary(prev => {
+                            const existingIds = new Set(prev.map(p => p.id));
+                            const unique = processedTracks.filter(t => !existingIds.has(t.id));
+                            // Optimized: only add new ones not already in prev? 
+                            // Actually, since processedTracks grows, we just want to merge the NEWEST ones?
+                            // Simplest safe approach:
+                            const newBatch = processedTracks.slice(-5);
+                            return [...newBatch.filter(t => !existingIds.has(t.id)), ...prev];
+                        });
+                    }
+
+                } catch (fileErr) {
+                    console.error("Error processing file:", file.name, fileErr);
+                }
+            }
+
+            // Final State Update to ensure everything is synced and clean
+            setLocalLibrary(prev => {
+                const existingIds = new Set(prev.map(p => p.id));
+                const unique = processedTracks.filter(t => !existingIds.has(t.id));
+                return [...unique, ...prev];
             });
 
-            // Save to Persistent Storage
-            await saveBatchMediaToDB(newTracks.map((item, i) => ({ item, file: files[i] })));
-
-            setLocalLibrary(prev => [...newTracks, ...prev]);
             setLibraryTab('LOCAL');
             setCurrentView(AppView.LIBRARY);
-            showToast(`Imported ${newTracks.length} files`, "success");
+            showToast(`Successfully imported ${processedTracks.length} files`, "success");
 
             if (fileInputRef.current) {
                 fileInputRef.current.value = '';
             }
         } catch (e) {
             console.error(e);
-            showToast("Failed to import files", "error");
+            showToast("Import process interrupted", "error");
         }
     };
 
