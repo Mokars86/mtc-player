@@ -41,6 +41,8 @@ interface PlayerViewProps {
     onToggleMiniMode?: () => void;
     reverbSettings?: ReverbSettings;
     onUpdateReverb?: (settings: ReverbSettings) => void;
+    onDownload?: () => void;
+    isOfflineAvailable?: boolean;
 }
 
 const PlayerView: React.FC<PlayerViewProps> = ({
@@ -72,7 +74,9 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     isMiniMode = false,
     onToggleMiniMode,
     reverbSettings,
-    onUpdateReverb
+    onUpdateReverb,
+    onDownload,
+    isOfflineAvailable
 }) => {
     const [showLyrics, setShowLyrics] = useState(false);
     // const [isMiniMode, setIsMiniMode] = useState(false); // Controlled by parent now
@@ -450,8 +454,14 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                     <>
 
                                         {showDefaultDisc ? (
-                                            <div className="w-full h-full p-0.5 bg-black/20 rounded-full transform scale-105">
-                                                <DefaultDisc />
+                                            <div className="w-full h-full p-0 flex items-center justify-center bg-black/90 rounded-2xl overflow-hidden shadow-2xl relative">
+                                                {/* Use the new offline/default cover */}
+                                                <img
+                                                    src="/mtc-offline-cover.png"
+                                                    className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
+                                                    alt="MTC Default"
+                                                />
+                                                {/* Optional overlay text if needed, but image has text */}
                                             </div>
                                         ) : (
                                             <img
@@ -461,12 +471,21 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                             />
                                         )}
 
-                                        {/* Vinyl Center Hole */}
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="w-16 h-16 md:w-20 md:h-20 bg-[#1a1a1a] rounded-full border-4 border-[#27272a] shadow-inner z-10 flex items-center justify-center">
-                                                <div className="w-4 h-4 bg-black rounded-full"></div>
+                                        {/* Vinyl Center Hole (Removed for card style default art) */}
+                                        {!showDefaultDisc && (
+                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                <div className="w-16 h-16 md:w-20 md:h-20 bg-[#1a1a1a]/0 rounded-full z-10 flex items-center justify-center">
+                                                    {/* Hidden hole for full art experience or keep if vinyl style desired. 
+                                                    User asked for "Album Cover Art", usually square/card, NOT vinyl. 
+                                                    But existing UI seems to be vinyl style? 
+                                                    Let's keep the hole ONLY if it's NOT the default disc (i.e. real cover). 
+                                                    Actually, for modern art, maybe remove hole? 
+                                                    The existing code puts a hole over everything. 
+                                                    Let's hide the hole if it is the default disc so the art shows fully.
+                                                */}
+                                                </div>
                                             </div>
-                                        </div>
+                                        )}
                                         {/* Audio Engine (Visualizer) Overlay */}
                                         <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0">
                                             <div className="w-full h-full opacity-80">
@@ -495,6 +514,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                     <button onClick={(e) => handleShare(e)} className="p-2 transition-transform active:scale-90 text-app-subtext hover:text-app-text">
                                         <Icons.Share2 className="w-6 h-6 md:w-7 md:h-7" />
                                     </button>
+                                    {onDownload && (
+                                        <button onClick={(e) => { e.stopPropagation(); onDownload(); }} className={`p-2 transition-transform active:scale-90 ${isOfflineAvailable ? 'text-brand-accent' : 'text-app-subtext hover:text-white'}`} disabled={isOfflineAvailable}>
+                                            {isOfflineAvailable ? <Icons.CheckCircle className="w-6 h-6 md:w-7 md:h-7" /> : <Icons.Download className="w-6 h-6 md:w-7 md:h-7" />}
+                                        </button>
+                                    )}
                                     <button onClick={() => onToggleFavorite?.()} className="p-2 transition-transform active:scale-90">
                                         <Icons.Heart className={`w-7 h-7 md:w-8 md:h-8 ${isFavorite ? 'fill-brand-accent text-brand-accent' : 'text-app-subtext'}`} />
                                     </button>

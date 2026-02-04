@@ -24,10 +24,14 @@ export const MiniPlayer = ({
     return (
         <div className="fixed bottom-[4.5rem] md:bottom-0 md:left-20 md:right-0 h-16 bg-app-surface border-t border-app-border flex items-center px-4 z-40 cursor-pointer w-full shadow-[0_-5px_20px_rgba(0,0,0,0.1)] transition-colors duration-300" onClick={() => setCurrentView(AppView.PLAYER)}>
             <div className="relative w-10 h-10 mr-3 flex-shrink-0 bg-gray-800 rounded-md overflow-hidden">
-                {!isOnline ? (
-                    <DefaultDisc />
+                {!isOnline || !currentTrack.coverUrl ? (
+                    <img src="/mtc-offline-cover.png" className="w-full h-full rounded-md object-cover opacity-80" alt="Offline" />
                 ) : (
-                    <img src={currentTrack.coverUrl} className="w-full h-full rounded-md object-cover" />
+                    <img
+                        src={currentTrack.coverUrl}
+                        className="w-full h-full rounded-md object-cover"
+                        onError={(e) => { e.currentTarget.src = "/mtc-offline-cover.png"; }}
+                    />
                 )}
                 {isPlaying && <div className="absolute inset-0 bg-black/20 flex items-center justify-center"><Icons.Activity className="w-4 h-4 text-white" /></div>}
             </div>

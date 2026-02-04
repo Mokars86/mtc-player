@@ -1193,6 +1193,42 @@ const AppContent = () => {
         }
     };
 
+    const handleDownloadTrack = async (track: MediaItem) => {
+        if (!isOnline) {
+            showToast("Offline: Cannot download remote tracks.", "error");
+            return;
+        }
+        if (track.id.startsWith('local-') || track.mediaUrl.startsWith('blob:')) {
+            showToast("Track is already local.", "info");
+            return;
+        }
+
+        showToast(`Downloading "${track.title}"...`, "info");
+
+        try {
+            const response = await fetch(track.mediaUrl);
+            const blob = await response.blob();
+
+            // Create a local copy
+            const newItem: MediaItem = {
+                ...track,
+                id: `local-${track.id}-${Date.now()}`, // New ID to distinguish
+                mediaUrl: URL.createObjectURL(blob),
+                album: track.album || 'Downloaded',
+                moods: [...(track.moods || []), 'Offline']
+            };
+
+            await saveMediaToDB(newItem, blob);
+
+            setLocalLibrary(prev => [newItem, ...prev]);
+            showToast("Saved to Library for Offline Play", "success");
+
+        } catch (e) {
+            console.error("Download failed", e);
+            showToast("Failed to download track", "error");
+        }
+    };
+
     const togglePlay = () => {
         if (!currentTrack) return;
         if (isPlaying) {
@@ -1435,6 +1471,8 @@ const AppContent = () => {
                         onSetSleepTimer={setTimer}
                         partyState={partyState}
                         accentColor={SKINS.find(s => s.id === theme)?.colors.accent}
+                        onDownload={() => handleDownloadTrack(currentTrack)}
+                        isOfflineAvailable={localLibrary.some(l => l.title === currentTrack.title && l.artist === currentTrack.artist)} // Simple check
                     />
                 )}
             </div>
