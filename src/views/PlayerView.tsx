@@ -114,7 +114,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
     useEffect(() => {
         setImgError(false);
     }, [currentTrack.coverUrl]);
-    const showDefaultDisc = !isOnline || !currentTrack.coverUrl || imgError;
+    const showDefaultDisc = !currentTrack.coverUrl || imgError;
 
     // Sync volume state with global Audio element
     useEffect(() => {
@@ -453,39 +453,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                 ) : (
                                     <>
 
-                                        {showDefaultDisc ? (
-                                            <div className="w-full h-full p-0 flex items-center justify-center bg-black/90 rounded-2xl overflow-hidden shadow-2xl relative">
-                                                {/* Use the new offline/default cover */}
-                                                <img
-                                                    src="/mtc-offline-cover.png"
-                                                    className="w-full h-full object-cover opacity-90 hover:scale-105 transition-transform duration-700"
-                                                    alt="MTC Default"
-                                                />
-                                                {/* Optional overlay text if needed, but image has text */}
-                                            </div>
-                                        ) : (
-                                            <img
-                                                src={currentTrack.coverUrl}
-                                                className="w-full h-full object-cover"
-                                                onError={() => setImgError(true)}
-                                            />
-                                        )}
+                                        <div className="w-full h-full p-0 flex items-center justify-center bg-transparent rounded-full overflow-hidden shadow-2xl relative">
+                                            <DefaultDisc />
+                                        </div>
 
-                                        {/* Vinyl Center Hole (Removed for card style default art) */}
-                                        {!showDefaultDisc && (
-                                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                <div className="w-16 h-16 md:w-20 md:h-20 bg-[#1a1a1a]/0 rounded-full z-10 flex items-center justify-center">
-                                                    {/* Hidden hole for full art experience or keep if vinyl style desired. 
-                                                    User asked for "Album Cover Art", usually square/card, NOT vinyl. 
-                                                    But existing UI seems to be vinyl style? 
-                                                    Let's keep the hole ONLY if it's NOT the default disc (i.e. real cover). 
-                                                    Actually, for modern art, maybe remove hole? 
-                                                    The existing code puts a hole over everything. 
-                                                    Let's hide the hole if it is the default disc so the art shows fully.
-                                                */}
-                                                </div>
-                                            </div>
-                                        )}
+
                                         {/* Audio Engine (Visualizer) Overlay */}
                                         <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-black/80 to-transparent flex items-end justify-center pb-0">
                                             <div className="w-full h-full opacity-80">

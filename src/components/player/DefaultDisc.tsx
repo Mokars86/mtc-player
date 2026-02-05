@@ -4,8 +4,8 @@ export const DefaultDisc = () => {
     return (
         <div className="w-full h-full relative overflow-hidden rounded-full shadow-[0_0_30px_rgba(0,0,0,0.5)] bg-[#101010] border-[6px] border-[#181818]">
             {/* Outer Ring / Platter Edge with Strobe Dots */}
-            <div className="absolute inset-0 rounded-full border-2 border-white/5 opacity-50"></div>
-            <div className="absolute inset-2 rounded-full border border-white/10 opacity-30 box-border"
+            <div className="absolute inset-0 rounded-full border-2 border-white/5 opacity-50 z-20 pointer-events-none"></div>
+            <div className="absolute inset-2 rounded-full border border-white/10 opacity-30 box-border z-20 pointer-events-none"
                 style={{
                     background: 'repeating-conic-gradient(from 0deg, transparent 0deg, transparent 2deg, rgba(255,255,255,0.1) 2.1deg, rgba(255,255,255,0.1) 4deg)'
                 }}
