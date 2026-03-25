@@ -137,32 +137,51 @@ export const api = {
   },
 
   // SYNC: Playlists
-  syncPlaylists: async (playlists: Playlist[]): Promise<void> => {
+  syncPlaylists: async (playlists: Playlist[], allMedia: any[] = []): Promise<void> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     // Update Cache
     localStorage.setItem(KEYS.PLAYLISTS, JSON.stringify(playlists));
 
-    // This is a "heavy" sync - mainly for structure. 
+    // Sync structure and items
     for (const p of playlists) {
-      // Only sync if it has a valid ID or we treat it as valid. 
-      // Note: Real app requires better conflict resolution.
-      if (!p.id.startsWith('pl-')) {
-        // It's a "saved" playlist or we just save all.
-        // Upsert Playlist Metadata
-        await supabase
-          .from('playlists')
-          .upsert({
-            id: p.id,
-            user_id: user.id,
-            name: p.name,
-            description: p.description,
-            created_at: new Date(p.createdAt).toISOString()
-          });
+      // Upsert Playlist Metadata
+      await supabase
+        .from('playlists')
+        .upsert({
+          id: p.id,
+          user_id: user.id,
+          name: p.name,
+          description: p.description,
+          created_at: new Date(p.createdAt).toISOString()
+        });
 
-        // Note: syncing items recursively is omitted for brevity unless requested, 
-        // as it requires deleting/re-inserting junction items.
+      // Clear existing items
+      await supabase.from('playlist_items').delete().eq('playlist_id', p.id);
+
+      // Insert new items
+      if (p.tracks.length > 0) {
+        const itemsToInsert = p.tracks.map((trackId, index) => {
+          const media = allMedia.find(m => m.id === trackId);
+          return {
+            playlist_id: p.id,
+            media_id: trackId,
+            title: media?.title || 'Unknown Title',
+            artist: media?.artist || 'Unknown Artist',
+            album: media?.album || null,
+            cover_url: media?.coverUrl || null,
+            media_url: media?.mediaUrl || 'unknown',
+            media_type: media?.type || 'MUSIC',
+            duration: media?.duration || 0,
+            position: index
+          };
+        });
+
+        if (itemsToInsert.length > 0) {
+          const { error } = await supabase.from('playlist_items').insert(itemsToInsert);
+          if (error) console.error("Error inserting playlist items:", error);
+        }
       }
     }
   },

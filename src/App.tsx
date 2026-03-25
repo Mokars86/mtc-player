@@ -14,7 +14,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { api } from './services/api';
 import { supabase } from './services/supabase';
 import { AuthView } from './views/AuthView';
-import { saveBatchMediaToDB, saveMediaToDB, loadMediaFromDB, clearMediaDB, removeMediaFromDB } from './services/db';
+import { saveBatchMediaToDB, saveMediaToDB, loadMediaFromDB, clearMediaDB, removeMediaFromDB, removeMultipleMediaFromDB } from './services/db';
 
 // Extracted Components
 import { SplashScreen } from './components/SplashScreen';
@@ -253,7 +253,7 @@ const AppContent = () => {
     const handleLogin = (guestMode = false) => {
         if (guestMode) {
             setIsGuest(true);
-            setUserName("Guest User");
+            setUserName(!navigator.onLine ? "Offline User" : "Guest User");
         }
     };
 
@@ -265,6 +265,9 @@ const AppContent = () => {
         } else {
             await supabase.auth.signOut();
             setSession(null);
+            setPlaylists([]);
+            setFavorites(new Set());
+            setRecentlyPlayed([]);
         }
         // Reset View
         setCurrentView(AppView.HOME);
@@ -281,7 +284,7 @@ const AppContent = () => {
         const sync = async () => {
             setSyncStatus('syncing');
             try {
-                await api.syncPlaylists(playlists);
+                await api.syncPlaylists(playlists, allMedia);
                 setSyncStatus('synced');
                 setTimeout(() => setSyncStatus('idle'), 2000);
             } catch (e) {
@@ -787,6 +790,21 @@ const AppContent = () => {
             removeMediaFromDB(id);
             setLocalLibrary(prev => prev.filter(item => item.id !== id));
             showToast("Track removed from library");
+        }
+    };
+
+    const removeMultipleFromLibrary = (ids: string[]) => {
+        if (confirm(`Remove ${ids.length} selected tracks from your local library?`)) {
+            removeMultipleMediaFromDB(ids);
+            setLocalLibrary(prev => prev.filter(item => !ids.includes(item.id)));
+            // Clean up dependents
+            setFavorites(prev => {
+                const next = new Set(prev);
+                ids.forEach(id => next.delete(id));
+                return next;
+            });
+            setRecentlyPlayed(prev => prev.filter(item => !ids.includes(item.id)));
+            showToast(`${ids.length} tracks removed from library`, "success");
         }
     };
 
@@ -1297,6 +1315,7 @@ const AppContent = () => {
                 clearLocalLibrary={clearLocalLibrary}
                 triggerFileUpload={triggerFileUpload}
                 removeFromLibrary={removeFromLibrary}
+                removeMultipleFromLibrary={removeMultipleFromLibrary}
                 setTrackToAction={setTrackToAction}
                 localLibrary={localLibrary}
                 isOnline={isOnline}

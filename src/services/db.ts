@@ -52,6 +52,14 @@ export const removeMediaFromDB = async (id: string) => {
     await db.delete(STORE_NAME, id);
 };
 
+export const removeMultipleMediaFromDB = async (ids: string[]) => {
+    const db = await initDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    await Promise.all(ids.map(id => store.delete(id)));
+    await tx.done;
+};
+
 export const updateMediaItem = async (id: string, updates: Partial<MediaItem>) => {
     const db = await initDB();
     const item = await db.get(STORE_NAME, id);

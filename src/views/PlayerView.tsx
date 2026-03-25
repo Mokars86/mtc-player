@@ -395,7 +395,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                         <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 text-app-text transition-colors">
                             <Icons.ChevronDown className="w-6 h-6" />
                         </button>
-                        <div className="flex gap-4 md:absolute md:top-6 md:left-6 md:flex-row-reverse">
+                        <div className="flex gap-4 lg:absolute lg:top-8 lg:left-8 lg:flex-row-reverse">
                             <button onClick={cyclePlaybackRate} className="p-2 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md flex items-center gap-1">
                                 <Icons.Gauge className="w-5 h-5" />
                                 <span className="text-xs font-bold w-6">{playbackRate}x</span>
@@ -416,10 +416,10 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                     </div>
 
                     {/* AUDIO LAYOUT */}
-                    <div className="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+                    <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
                         {/* Left Side: Artwork/Visualizer */}
-                        <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0 relative w-full md:w-1/2 md:max-w-none md:p-0 md:min-h-auto text-center shrink-0">
-                            <div className={`relative shrink-0 ${showLyrics ? 'rounded-2xl w-[85vw] h-[50vh]' : 'rounded-full w-[min(70vw,40vh)] h-[min(70vw,40vh)]'} overflow-hidden shadow-2xl transition-all duration-500 ${isZoomed ? 'scale-110 z-20' : ''} ${isPlaying && !showLyrics ? 'animate-spin-slow' : ''}`} onClick={() => setIsZoomed(!isZoomed)}>
+                        <div className="flex-1 flex flex-col items-center justify-center p-4 min-h-0 relative w-full lg:w-1/2 lg:max-w-none lg:p-0 lg:min-h-auto text-center shrink-0">
+                            <div className={`relative shrink-0 ${showLyrics ? 'rounded-2xl w-[85vw] h-[50vh]' : 'rounded-full w-[min(70vw,40vh)] lg:w-[min(60vw,45vh)] lg:h-[min(60vw,45vh)] h-[min(70vw,40vh)]'} overflow-hidden shadow-2xl transition-all duration-500 ${isZoomed ? 'scale-110 z-20' : ''} ${isPlaying && !showLyrics ? 'animate-spin-slow' : ''}`} onClick={() => setIsZoomed(!isZoomed)}>
                                 {(showLyrics ? (
                                     <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col p-6 overflow-y-auto text-center scroll-smooth no-scrollbar">
                                         <div className="flex justify-between items-center mb-4 sticky top-0">
@@ -476,11 +476,11 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                         </div>
 
                         {/* Right Side: Controls */}
-                        <div className="w-full flex-shrink-0 flex flex-col items-center justify-end p-4 pb-8 md:w-1/2 md:p-0 md:items-stretch md:justify-center">
-                            <div className="w-full max-w-sm md:max-w-md mb-2 flex justify-between items-center md:mb-8">
+                        <div className="w-full flex-shrink-0 flex flex-col items-center justify-end p-4 pb-8 lg:w-1/2 lg:p-0 lg:items-center lg:justify-center">
+                            <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg mb-2 flex justify-between items-center lg:mb-8">
                                 <div className="overflow-hidden">
-                                    <h2 className="text-2xl font-bold text-app-text truncate md:text-4xl">{currentTrack.title}</h2>
-                                    <p className="text-app-subtext truncate md:text-xl md:mt-1">{currentTrack.artist}</p>
+                                    <h2 className="text-2xl sm:text-3xl font-bold text-app-text truncate lg:text-4xl text-left">{currentTrack.title}</h2>
+                                    <p className="text-app-subtext truncate sm:text-lg lg:text-xl lg:mt-1 text-left">{currentTrack.artist}</p>
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <button onClick={(e) => handleShare(e)} className="p-2 transition-transform active:scale-90 text-app-subtext hover:text-app-text">
@@ -497,7 +497,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                 </div>
                             </div>
 
-                            <div className="w-full max-w-sm md:max-w-md mb-4 group md:mb-10">
+                            <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg mb-4 group lg:mb-10">
                                 <input type="range" min="0" max={duration || 100} value={currentTime} onChange={handleSeekChange} className="w-full h-1.5 bg-app-border rounded-full appearance-none cursor-pointer accent-brand-accent hover:h-2 transition-all" />
                                 <div className="flex justify-between text-xs text-app-subtext mt-2 font-mono">
                                     <span>{formatTime(currentTime)}</span>
@@ -505,7 +505,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                 </div>
                             </div>
 
-                            <div className="w-full max-w-sm md:max-w-md flex items-center justify-between mb-4 md:mb-12">
+                            <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg flex items-center justify-between mb-4 lg:mb-12">
                                 <button onClick={onToggleShuffle} className={`p-2 transition-colors ${shuffleOn ? 'text-brand-accent' : 'text-app-subtext'}`}><Icons.Shuffle className="w-5 h-5 md:w-6 md:h-6" /></button>
                                 <button onClick={onPrev} className="p-2 text-app-text hover:text-brand-accent transition-colors"><Icons.SkipBack className="w-8 h-8 md:w-10 md:h-10 fill-current" /></button>
                                 <button onClick={handlePlayPauseProxy} className="w-16 h-16 md:w-20 md:h-20 rounded-full bg-brand-accent text-white flex items-center justify-center shadow-[0_0_20px_rgba(13,148,136,0.4)] hover:scale-105 hover:shadow-[0_0_30px_rgba(13,148,136,0.6)] transition-all">
@@ -520,7 +520,7 @@ const PlayerView: React.FC<PlayerViewProps> = ({
                                 </button>
                             </div>
 
-                            <div className="w-full max-w-sm md:max-w-md flex items-center justify-between px-4 md:px-0 mt-2 md:mt-0">
+                            <div className="w-full max-w-sm sm:max-w-md lg:max-w-lg flex items-center justify-between px-4 sm:px-0 mt-2 lg:mt-0">
                                 <div className="flex items-center gap-2 group relative">
                                     <button onClick={toggleMute} className="text-app-subtext hover:text-app-text p-2 hover:bg-white/5 rounded-full"><Icons.Volume2 className="w-5 h-5 md:w-6 md:h-6" /></button>
                                     <input type="range" min="0" max="1" step="0.01" value={volume} onChange={handleVolumeChange} className="w-24 h-1.5 bg-app-border rounded-full accent-brand-accent" />

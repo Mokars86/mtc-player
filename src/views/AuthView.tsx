@@ -43,6 +43,20 @@ export const AuthView = ({ onLogin }: AuthViewProps) => {
     };
 
 
+    React.useEffect(() => {
+        const checkOffline = () => {
+            if (!navigator.onLine) {
+                showToast("No internet detected. Entering Offline Mode.", "info");
+                onLogin(true);
+            }
+        };
+        // Check immediately on mount
+        checkOffline();
+        
+        // Listen for offline event in case connection drops while looking at auth view
+        window.addEventListener('offline', checkOffline);
+        return () => window.removeEventListener('offline', checkOffline);
+    }, [onLogin, showToast]);
 
     const handleGuestLogin = () => {
         showToast("Logged in as Guest", "info");

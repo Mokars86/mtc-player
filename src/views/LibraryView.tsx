@@ -26,6 +26,7 @@ interface LibraryViewProps {
     clearLocalLibrary: () => void;
     triggerFileUpload: () => void;
     removeFromLibrary: (id: string, e?: React.MouseEvent) => void;
+    removeMultipleFromLibrary: (ids: string[]) => void;
     setTrackToAction: Dispatch<SetStateAction<MediaItem | null>>;
     localLibrary: MediaItem[];
     isOnline: boolean;
@@ -39,12 +40,14 @@ interface LibraryViewProps {
 export const LibraryView = ({
     libraryTab, setLibraryTab, playlists, openCreatePlaylistModal, deletePlaylist, favorites, toggleFavorite,
     allMedia, filteredMedia, albums, artists, selectedCollection, setSelectedCollection, searchQuery, setSearchQuery,
-    playTrack, currentTrack, isPlaying, clearLocalLibrary, triggerFileUpload, removeFromLibrary, setTrackToAction,
+    playTrack, currentTrack, isPlaying, clearLocalLibrary, triggerFileUpload, removeFromLibrary, removeMultipleFromLibrary, setTrackToAction,
     localLibrary, isOnline, setShuffleOn, removeFromPlaylist, addToPlaylist, scanFolder, onEditMetadata
 }: LibraryViewProps) => {
 
     const [trackOptions, setTrackOptions] = React.useState<MediaItem | null>(null);
     const [viewMode, setViewMode] = React.useState<'GRID' | 'LIST'>('GRID');
+    const [isSelectionMode, setIsSelectionMode] = React.useState(false);
+    const [selectedTracks, setSelectedTracks] = React.useState<Set<string>>(new Set());
 
     // Default to LIST for tracks, GRID for collections
     React.useEffect(() => {
@@ -72,13 +75,38 @@ export const LibraryView = ({
                             <span className="hidden sm:inline text-sm font-bold">Clear All</span>
                         </button>
                     )}
-                    {!selectedCollection && (
+                    {!selectedCollection && !isSelectionMode && (
                         <div className="flex gap-2">
                             <button onClick={scanFolder} className="flex items-center gap-2 bg-app-card hover:bg-app-surface border border-app-border text-app-text px-3 py-2 rounded-lg transition-colors shadow-sm" title="Scan Folder">
                                 <Icons.FolderPlus className="w-5 h-5" /><span className="hidden sm:inline">Scan</span>
                             </button>
                             <button onClick={triggerFileUpload} className="flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg transition-colors shadow-md hover:shadow-lg" title="Import Files">
                                 <Icons.PlusCircle className="w-5 h-5" /><span className="hidden sm:inline">Add</span>
+                            </button>
+                            {['ALL', 'LOCAL', 'AUDIO', 'FAVORITES'].includes(libraryTab) && (
+                                <button onClick={() => setIsSelectionMode(true)} className="flex items-center gap-2 bg-brand-accent/10 text-brand-accent px-3 py-2 rounded-lg hover:bg-brand-accent/20 transition-colors border border-brand-accent/20" title="Select Multiple">
+                                    <Icons.CheckCircle className="w-5 h-5" /><span className="hidden sm:inline">Select</span>
+                                </button>
+                            )}
+                        </div>
+                    )}
+                    {isSelectionMode && (
+                        <div className="flex gap-2">
+                            <button onClick={() => { setIsSelectionMode(false); setSelectedTracks(new Set()); }} className="flex items-center gap-2 bg-app-surface text-app-text px-3 py-2 rounded-lg border border-app-border hover:bg-app-card">
+                                Cancel
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    if (selectedTracks.size > 0) {
+                                        removeMultipleFromLibrary(Array.from(selectedTracks));
+                                        setIsSelectionMode(false);
+                                        setSelectedTracks(new Set());
+                                    }
+                                }} 
+                                disabled={selectedTracks.size === 0}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-colors ${selectedTracks.size > 0 ? 'bg-red-500 hover:bg-red-600 text-white shadow-md' : 'bg-red-500/50 text-white/50 cursor-not-allowed'}`}>
+                                <Icons.Trash2 className="w-5 h-5" />
+                                <span className="hidden sm:inline">Delete {selectedTracks.size > 0 ? `(${selectedTracks.size})` : ''}</span>
                             </button>
                         </div>
                     )}
@@ -243,7 +271,23 @@ export const LibraryView = ({
                             )}
                             {filteredMedia.map(media => (
                                 viewMode === 'LIST' ? (
-                                    <div key={`${media.id}-${selectedCollection?.id || 'list'}`} onClick={() => playTrack(media)} className={`group flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-xl cursor-pointer transition-all border border-transparent ${currentTrack?.id === media.id ? 'bg-brand-accent/10 border-brand-accent/20' : 'bg-app-surface hover:bg-app-card hover:shadow-md border-app-border'} ${!isOnline && !media.id.startsWith('local-') && !media.mediaUrl.startsWith('blob:') ? 'opacity-50 grayscale' : ''}`}>
+                                    <div key={`${media.id}-${selectedCollection?.id || 'list'}`} onClick={() => {
+                                        if (isSelectionMode) {
+                                            const next = new Set(selectedTracks);
+                                            if (next.has(media.id)) next.delete(media.id);
+                                            else next.add(media.id);
+                                            setSelectedTracks(next);
+                                            return;
+                                        }
+                                        playTrack(media);
+                                    }} className={`group flex items-center gap-2 sm:gap-4 p-2 sm:p-3 rounded-xl cursor-pointer transition-all border border-transparent ${currentTrack?.id === media.id ? 'bg-brand-accent/10 border-brand-accent/20' : 'bg-app-surface hover:bg-app-card hover:shadow-md border-app-border'} ${!isOnline && !media.id.startsWith('local-') && !media.mediaUrl.startsWith('blob:') ? 'opacity-50 grayscale' : ''}`}>
+                                        {isSelectionMode && (
+                                            <div className="flex-shrink-0 mr-1 sm:mr-2 flex items-center justify-center">
+                                                <div className={`w-5 h-5 flex items-center justify-center rounded border transition-colors ${selectedTracks.has(media.id) ? 'bg-brand-accent border-brand-accent text-white' : 'border-app-border group-hover:border-brand-accent/50'}`}>
+                                                    {selectedTracks.has(media.id) && <Icons.Check className="w-4 h-4" />}
+                                                </div>
+                                            </div>
+                                        )}
                                         <div className="relative w-12 h-12 flex-shrink-0">
                                             <div className="relative w-full h-full">
                                                 {media.id.startsWith('local') ? (
@@ -298,7 +342,23 @@ export const LibraryView = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div key={`${media.id}-grid`} onClick={() => playTrack(media)} className={`group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer shadow-md border hover:shadow-xl transition-all ${currentTrack?.id === media.id ? 'border-brand-accent ring-2 ring-brand-accent/50' : 'border-app-border'}`}>
+                                    <div key={`${media.id}-grid`} onClick={() => {
+                                        if (isSelectionMode) {
+                                            const next = new Set(selectedTracks);
+                                            if (next.has(media.id)) next.delete(media.id);
+                                            else next.add(media.id);
+                                            setSelectedTracks(next);
+                                            return;
+                                        }
+                                        playTrack(media);
+                                    }} className={`group relative aspect-[3/4] rounded-xl overflow-hidden cursor-pointer shadow-md border hover:shadow-xl transition-all ${currentTrack?.id === media.id ? 'border-brand-accent ring-2 ring-brand-accent/50' : 'border-app-border'}`}>
+                                        {isSelectionMode && (
+                                            <div className="absolute top-2 left-2 z-10">
+                                                <div className={`w-6 h-6 flex items-center justify-center rounded-full border-2 transition-colors ${selectedTracks.has(media.id) ? 'bg-brand-accent border-brand-accent text-white' : 'border-white/50 bg-black/30 text-transparent group-hover:border-white'}`}>
+                                                    <Icons.Check className="w-4 h-4" />
+                                                </div>
+                                            </div>
+                                        )}
                                         <img src={media.coverUrl} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" alt={media.title} />
                                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent flex flex-col justify-end p-3">
                                             {currentTrack?.id === media.id && isPlaying && (
